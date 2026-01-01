@@ -15,6 +15,8 @@ export class IssuePanel {
     private currentIssue: JiraIssue | undefined;
     private currentIssueKey: string;
     private isPinned: boolean = false;
+    private attachmentMaps: { byId: Record<string, string>; byFilename: Record<string, string> } = { byId: {}, byFilename: {} };
+    private mediaIdToUrl: Record<string, string> = {};
 
     private constructor(
         panel: vscode.WebviewPanel,
@@ -43,11 +45,10 @@ export class IssuePanel {
 
                 this.panel.title = IssuePanel.formatTitle(issue.key, issue.fields.summary, !this.isPinned);
 
-                const attachmentMaps = this.buildAttachmentMaps(issue);
-                const mediaInfo = this.extractMediaInfo(issue.fields.description);
-                const imageMap = await this.prefetchImages(mediaInfo, attachmentMaps, 3);
+                this.attachmentMaps = this.buildAttachmentMaps(issue);
+                this.mediaIdToUrl = this.buildMediaIdToUrl(issue);
 
-                return { issue, imageMap };
+                return { issue, imageMap: {} as Record<string, string> };
             },
 
             refresh: async () => {
@@ -57,11 +58,10 @@ export class IssuePanel {
                 const issue = await this.client.getIssue(this.currentIssueKey);
                 this.currentIssue = issue;
 
-                const attachmentMaps = this.buildAttachmentMaps(issue);
-                const mediaInfo = this.extractMediaInfo(issue.fields.description);
-                const imageMap = await this.prefetchImages(mediaInfo, attachmentMaps, 3);
+                this.attachmentMaps = this.buildAttachmentMaps(issue);
+                this.mediaIdToUrl = this.buildMediaIdToUrl(issue);
 
-                return { issue, imageMap };
+                return { issue, imageMap: {} as Record<string, string> };
             },
 
             openInBrowser: () => {
@@ -76,6 +76,10 @@ export class IssuePanel {
 
             saveAttachment: async (attachment: { id: string; filename: string; content: string }) => {
                 await this.handleSaveAttachment(attachment);
+            },
+
+            loadImage: async (id: string) => {
+                return this.loadSingleImage(id);
             },
         };
     }
@@ -202,33 +206,6 @@ export class IssuePanel {
 </html>`;
     }
 
-    private extractMediaInfo(adf: unknown): Array<{ id: string; filename?: string }> {
-        const mediaInfo: Array<{ id: string; filename?: string }> = [];
-
-        const traverse = (node: unknown) => {
-            if (!node || typeof node !== 'object') return;
-
-            const n = node as { type?: string; attrs?: { id?: string; alt?: string }; content?: unknown[] };
-
-            if (n.type === 'media' && n.attrs) {
-                const id = n.attrs.id;
-                const filename = n.attrs.alt;
-                if (id) {
-                    mediaInfo.push({ id, filename });
-                }
-            }
-
-            if (n.content && Array.isArray(n.content)) {
-                for (const child of n.content) {
-                    traverse(child);
-                }
-            }
-        };
-
-        traverse(adf);
-        return mediaInfo;
-    }
-
     private buildAttachmentMaps(issue: JiraIssue): {
         byId: Record<string, string>;
         byFilename: Record<string, string>;
@@ -244,43 +221,37 @@ export class IssuePanel {
         return { byId, byFilename };
     }
 
-    private async prefetchImages(
-        mediaInfo: Array<{ id: string; filename?: string }>,
-        attachmentMaps: { byId: Record<string, string>; byFilename: Record<string, string> },
-        maxCount: number
-    ): Promise<Record<string, string>> {
-        const imageMap: Record<string, string> = {};
-        const toFetch = mediaInfo.slice(0, maxCount);
+    private buildMediaIdToUrl(issue: JiraIssue): Record<string, string> {
+        const mediaIdToUrl: Record<string, string> = {};
+        const attachmentMaps = this.attachmentMaps;
 
-        const results = await Promise.allSettled(
-            toFetch.map(async ({ id, filename }) => {
-                let contentUrl = attachmentMaps.byId[id];
+        const traverse = (node: unknown) => {
+            if (!node || typeof node !== 'object') return;
+
+            const n = node as { type?: string; attrs?: { id?: string; alt?: string }; content?: unknown[] };
+
+            if (n.type === 'media' && n.attrs?.id) {
+                const mediaId = n.attrs.id;
+                const filename = n.attrs.alt;
+
+                let contentUrl = attachmentMaps.byId[mediaId];
                 if (!contentUrl && filename) {
                     contentUrl = attachmentMaps.byFilename[filename.toLowerCase()];
                 }
-
-                if (!contentUrl) {
-                    return { id, dataUrl: null };
+                if (contentUrl) {
+                    mediaIdToUrl[mediaId] = contentUrl;
                 }
-
-                try {
-                    const buffer = await this.client.downloadAttachment(contentUrl);
-                    const mimeType = this.getMimeType(contentUrl);
-                    const base64 = buffer.toString('base64');
-                    return { id, dataUrl: `data:${mimeType};base64,${base64}` };
-                } catch {
-                    return { id, dataUrl: null };
-                }
-            })
-        );
-
-        for (const result of results) {
-            if (result.status === 'fulfilled' && result.value.dataUrl) {
-                imageMap[result.value.id] = result.value.dataUrl;
             }
-        }
 
-        return imageMap;
+            if (n.content && Array.isArray(n.content)) {
+                for (const child of n.content) {
+                    traverse(child);
+                }
+            }
+        };
+
+        traverse(issue.fields.description);
+        return mediaIdToUrl;
     }
 
     private getMimeType(url: string): string {
@@ -297,6 +268,22 @@ export class IssuePanel {
             return 'image/png';
         }
         return 'image/png';
+    }
+
+    private async loadSingleImage(id: string): Promise<string | null> {
+        const contentUrl = this.mediaIdToUrl[id];
+        if (!contentUrl) {
+            return null;
+        }
+
+        try {
+            const buffer = await this.client.downloadAttachment(contentUrl);
+            const mimeType = this.getMimeType(contentUrl);
+            const base64 = buffer.toString('base64');
+            return `data:${mimeType};base64,${base64}`;
+        } catch {
+            return null;
+        }
     }
 
     private async handleSaveAttachment(attachment: { id: string; filename: string; content: string }): Promise<void> {
