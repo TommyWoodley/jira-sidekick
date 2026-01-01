@@ -1,6 +1,10 @@
 import { LitElement, html, css, TemplateResult, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import type { AdfNode, AdfMark } from '@shared/models';
+import type { IssueApi } from '@shared/api';
+import { createApiClient } from './rpc-client';
+
+const api = createApiClient<IssueApi>();
 
 @customElement('adf-renderer')
 export class AdfRenderer extends LitElement {
@@ -179,6 +183,35 @@ export class AdfRenderer extends LitElement {
       margin: 4px 0;
     }
 
+    .image-placeholder {
+      display: block;
+      width: 100%;
+      max-width: 400px;
+      height: 200px;
+      background: var(--vscode-sideBar-background);
+      border-radius: 4px;
+      margin: 8px 0;
+      overflow: hidden;
+    }
+
+    .skeleton-loader {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        var(--vscode-sideBar-background) 0%,
+        var(--vscode-editor-background) 50%,
+        var(--vscode-sideBar-background) 100%
+      );
+      background-size: 200% 100%;
+      animation: skeleton-pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes skeleton-pulse {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
     .inline-image {
       max-width: 100%;
       height: auto;
@@ -204,6 +237,64 @@ export class AdfRenderer extends LitElement {
 
   @property({ type: Object }) adf: AdfNode | null = null;
   @property({ type: Object }) imageMap: Record<string, string> = {};
+
+  @state() private loadedImages: Record<string, string> = {};
+  private pendingRequests = new Set<string>();
+  private observer: IntersectionObserver | null = null;
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.observer?.disconnect();
+    this.observer = null;
+  }
+
+  updated(changedProperties: Map<string, unknown>) {
+    super.updated(changedProperties);
+    if (changedProperties.has('adf')) {
+      this.loadedImages = {};
+      this.pendingRequests.clear();
+    }
+    this.setupLazyLoading();
+  }
+
+  private setupLazyLoading() {
+    this.observer?.disconnect();
+
+    this.observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const id = (entry.target as HTMLElement).dataset.imageId;
+            if (id) {
+              this.fetchImage(id);
+              this.observer?.unobserve(entry.target);
+            }
+          }
+        }
+      },
+      { rootMargin: '100px' }
+    );
+
+    this.shadowRoot?.querySelectorAll('.image-placeholder').forEach((el) => {
+      this.observer?.observe(el);
+    });
+  }
+
+  private async fetchImage(id: string) {
+    if (this.pendingRequests.has(id) || this.loadedImages[id] || this.imageMap[id]) {
+      return;
+    }
+
+    this.pendingRequests.add(id);
+    try {
+      const dataUrl = await api.loadImage(id);
+      if (dataUrl) {
+        this.loadedImages = { ...this.loadedImages, [id]: dataUrl };
+      }
+    } finally {
+      this.pendingRequests.delete(id);
+    }
+  }
 
   render() {
     if (!this.adf) {
@@ -331,8 +422,16 @@ export class AdfRenderer extends LitElement {
 
   private renderMediaNode(node: AdfNode): TemplateResult {
     const id = node.attrs?.id as string;
-    if (id && this.imageMap[id]) {
-      return html`<img src="${this.imageMap[id]}" class="inline-image" alt="Image" />`;
+    const cachedUrl = id ? this.loadedImages[id] || this.imageMap[id] : null;
+    if (cachedUrl) {
+      return html`<img src="${cachedUrl}" class="inline-image" alt="Image" loading="lazy" />`;
+    }
+    if (id) {
+      return html`
+        <div class="image-placeholder" data-image-id="${id}">
+          <div class="skeleton-loader"></div>
+        </div>
+      `;
     }
     return html`<div class="media-placeholder">📎 Media attachment</div>`;
   }

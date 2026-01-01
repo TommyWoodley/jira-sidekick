@@ -46,5 +46,7 @@ export interface IssueApi {
         filename: string;
         content: string;
     }): Promise<void>;
+
+    loadImage(id: string): Promise<string | null>;
 }
 
