@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { JiraClient, JiraClientError } from '../jira/client';
+import { JiraClient } from '../jira/client';
 import { AuthService } from '../jira/auth';
 import { JiraIssue } from '../jira/types';
 import { IssueCache } from '../core/cache';
@@ -65,40 +65,36 @@ export class CommandsManager {
             return;
         }
 
-        try {
-            let jql: string;
-            const selectedFilterId = await this.authService.getSelectedFilter();
+        let jql: string;
+        const selectedFilterId = await this.authService.getSelectedFilter();
 
-            if (selectedFilterId) {
-                const filter = await this.client.getFilterById(selectedFilterId);
-                if (filter) {
-                    jql = filter.jql;
-                } else {
-                    jql = vscode.workspace.getConfiguration('jira-sidekick').get<string>('jql')
-                        || 'assignee = currentUser() ORDER BY updated DESC';
-                }
+        if (selectedFilterId) {
+            const filterResult = await this.client.getFilterById(selectedFilterId);
+            if (filterResult.success) {
+                jql = filterResult.data.jql;
             } else {
                 jql = vscode.workspace.getConfiguration('jira-sidekick').get<string>('jql')
                     || 'assignee = currentUser() ORDER BY updated DESC';
             }
-            
-            const response = await this.client.searchIssues(jql);
-            this.cache.setIssues(response.issues);
-            
-            vscode.window.setStatusBarMessage(`Jira: Loaded ${response.issues.length} issues`, 3000);
-        } catch (error) {
-            if (error instanceof JiraClientError) {
-                const action = await vscode.window.showErrorMessage(
-                    `Jira Error: ${error.message}`,
-                    error.statusCode === 401 ? 'Configure' : 'Retry'
-                );
-                if (action === 'Configure') {
-                    await this.configure();
-                } else if (action === 'Retry') {
-                    await this.refresh();
-                }
-            } else {
-                vscode.window.showErrorMessage(`Failed to fetch issues: ${error}`);
+        } else {
+            jql = vscode.workspace.getConfiguration('jira-sidekick').get<string>('jql')
+                || 'assignee = currentUser() ORDER BY updated DESC';
+        }
+
+        const searchResult = await this.client.searchIssues(jql);
+        if (searchResult.success) {
+            this.cache.setIssues(searchResult.data.issues);
+            vscode.window.setStatusBarMessage(`Jira: Loaded ${searchResult.data.issues.length} issues`, 3000);
+        } else {
+            const error = searchResult.error;
+            const action = await vscode.window.showErrorMessage(
+                `Jira Error: ${error.message}`,
+                error.statusCode === 401 ? 'Configure' : 'Retry'
+            );
+            if (action === 'Configure') {
+                await this.configure();
+            } else if (action === 'Retry') {
+                await this.refresh();
             }
         }
     }

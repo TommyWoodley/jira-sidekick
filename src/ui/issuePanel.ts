@@ -40,7 +40,11 @@ export class IssuePanel {
         return {
             loadIssue: async (issueKey: string) => {
                 this.currentIssueKey = issueKey;
-                const issue = await this.client.getIssue(issueKey);
+                const result = await this.client.getIssue(issueKey);
+                if (!result.success) {
+                    throw new Error(result.error.message);
+                }
+                const issue = result.data;
                 this.currentIssue = issue;
 
                 this.panel.title = IssuePanel.formatTitle(issue.key, issue.fields.summary, !this.isPinned);
@@ -55,7 +59,11 @@ export class IssuePanel {
                 if (!this.currentIssueKey) {
                     throw new Error('No issue loaded');
                 }
-                const issue = await this.client.getIssue(this.currentIssueKey);
+                const result = await this.client.getIssue(this.currentIssueKey);
+                if (!result.success) {
+                    throw new Error(result.error.message);
+                }
+                const issue = result.data;
                 this.currentIssue = issue;
 
                 this.attachmentMaps = this.buildAttachmentMaps(issue);
@@ -276,14 +284,14 @@ export class IssuePanel {
             return null;
         }
 
-        try {
-            const buffer = await this.client.downloadAttachment(contentUrl);
-            const mimeType = this.getMimeType(contentUrl);
-            const base64 = buffer.toString('base64');
-            return `data:${mimeType};base64,${base64}`;
-        } catch {
+        const result = await this.client.downloadAttachment(contentUrl);
+        if (!result.success) {
             return null;
         }
+
+        const mimeType = this.getMimeType(contentUrl);
+        const base64 = result.data.toString('base64');
+        return `data:${mimeType};base64,${base64}`;
     }
 
     private async handleSaveAttachment(attachment: { id: string; filename: string; content: string }): Promise<void> {
@@ -310,8 +318,11 @@ export class IssuePanel {
                     cancellable: false
                 },
                 async () => {
-                    const buffer = await this.client.downloadAttachment(attachment.content);
-                    await fs.writeFile(targetPath, buffer);
+                    const result = await this.client.downloadAttachment(attachment.content);
+                    if (!result.success) {
+                        throw new Error(result.error.message);
+                    }
+                    await fs.writeFile(targetPath, result.data);
                 }
             );
 
