@@ -19,11 +19,25 @@ export interface JiraAttachment {
   created: string;
 }
 
+// Atlassian Document Format types
+export interface AdfMark {
+  type: string;
+  attrs?: Record<string, unknown>;
+}
+
+export interface AdfNode {
+  type: string;
+  content?: AdfNode[];
+  text?: string;
+  attrs?: Record<string, unknown>;
+  marks?: AdfMark[];
+}
+
 export interface JiraIssue {
   key: string;
   fields: {
     summary: string;
-    description: string;
+    description: AdfNode | null;
     status: {
       name: string;
       statusCategory: {
