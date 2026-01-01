@@ -3,6 +3,10 @@
   "displayName": "Jira Sidekick",
   "description": "A VS Code extension for Jira integration",
   "version": "0.0.1",
+"repository": {
+    "type": "git",
+    "url": "https://github.com/thwoodle/jira-sidekick"
+},
   "engines": {
     "vscode": "^1.103.0"
   },
