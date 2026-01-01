@@ -4,6 +4,7 @@ import '@vscode-elements/elements/dist/vscode-button/index.js';
 import '@vscode-elements/elements/dist/vscode-badge/index.js';
 import '@vscode-elements/elements/dist/vscode-divider/index.js';
 import '@vscode-elements/elements/dist/vscode-progress-ring/index.js';
+import '../shared/adf-renderer';
 import { postMessage } from '../shared/vscode-api';
 import { sharedStyles } from '../shared/styles';
 import type { JiraIssue, JiraAttachment } from '../shared/types';
@@ -150,65 +151,16 @@ export class IssueApp extends LitElement {
         margin-bottom: 12px;
       }
 
-      .description {
+      .description-container {
         background: var(--vscode-textBlockQuote-background);
         padding: 16px;
         border-radius: 4px;
         border-left: 3px solid var(--vscode-textBlockQuote-border);
-        line-height: 1.6;
       }
 
-      .description pre {
-        background: var(--vscode-textCodeBlock-background);
-        padding: 12px;
-        border-radius: 4px;
-        overflow-x: auto;
-      }
-
-      .description code {
-        background: var(--vscode-textCodeBlock-background);
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-family: var(--vscode-editor-font-family);
-      }
-
-      .description pre code {
-        background: none;
-        padding: 0;
-      }
-
-      .description a {
-        color: var(--vscode-textLink-foreground);
-      }
-
-      .description blockquote {
-        margin: 12px 0;
-        padding-left: 16px;
-        border-left: 3px solid var(--vscode-textBlockQuote-border);
+      .no-description {
         color: var(--vscode-descriptionForeground);
-      }
-
-      .description ul, .description ol {
-        margin: 12px 0;
-        padding-left: 24px;
-      }
-
-      .description h1, .description h2, .description h3 {
-        margin: 16px 0 8px;
-      }
-
-      .description table {
-        border-collapse: collapse;
-        margin: 12px 0;
-      }
-
-      .description th, .description td {
-        border: 1px solid var(--vscode-panel-border);
-        padding: 8px 12px;
-      }
-
-      .description th {
-        background: var(--vscode-sideBar-background);
+        font-style: italic;
       }
 
       .attachments-section {
@@ -432,7 +384,11 @@ export class IssueApp extends LitElement {
 
       <div class="content">
         <div class="section-title">Description</div>
-        <div class="description" .innerHTML=${this.issue.fields.description || 'No description'}></div>
+        <div class="description-container">
+          ${this.issue.fields.description
+        ? html`<adf-renderer .adf=${this.issue.fields.description}></adf-renderer>`
+        : html`<span class="no-description">No description</span>`}
+        </div>
 
         ${this.renderAttachments()}
       </div>
