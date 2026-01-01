@@ -132,6 +132,7 @@ export class CommandsManager {
             this.extensionUri,
             this.client,
             issue.key,
+            issue.fields.summary,
             (i) => this.openInBrowser(i)
         );
     }
@@ -144,6 +145,7 @@ export class CommandsManager {
             this.extensionUri,
             this.client,
             issue.key,
+            issue.fields.summary,
             (i) => this.openInBrowser(i)
         );
     }

@@ -41,10 +41,7 @@ export class IssuePanel {
                 const issue = await this.client.getIssue(issueKey);
                 this.currentIssue = issue;
 
-                const maxLength = vscode.workspace.getConfiguration('jira-sidekick').get<number>('maxTabTitleLength', 30);
-                const truncatedSummary = this.truncateText(issue.fields.summary, maxLength);
-                const prefix = this.isPinned ? '' : '~ ';
-                this.panel.title = `${prefix}${issue.key}: ${truncatedSummary}`;
+                this.panel.title = IssuePanel.formatTitle(issue.key, issue.fields.summary, !this.isPinned);
 
                 const attachmentMaps = this.buildAttachmentMaps(issue);
                 const mediaInfo = this.extractMediaInfo(issue.fields.description);
@@ -87,6 +84,7 @@ export class IssuePanel {
         extensionUri: vscode.Uri,
         client: JiraClient,
         issueKey: string,
+        summary: string,
         onOpenInBrowser: (issue: JiraIssue) => void
     ): Promise<void> {
         const existingPinned = IssuePanel.pinnedPanels.get(issueKey);
@@ -95,17 +93,19 @@ export class IssuePanel {
             return;
         }
 
+        const title = IssuePanel.formatTitle(issueKey, summary, true);
+
         if (IssuePanel.previewPanel) {
             IssuePanel.previewPanel.panel.reveal();
             IssuePanel.previewPanel.currentIssueKey = issueKey;
-            IssuePanel.previewPanel.panel.title = `~ ${issueKey}`;
+            IssuePanel.previewPanel.panel.title = title;
             IssuePanel.previewPanel.panel.webview.html = IssuePanel.previewPanel.getWebviewContent();
             return;
         }
 
         const panel = vscode.window.createWebviewPanel(
             'jiraSidekickIssue',
-            `~ ${issueKey}`,
+            title,
             vscode.ViewColumn.One,
             {
                 enableScripts: true,
@@ -121,6 +121,7 @@ export class IssuePanel {
         extensionUri: vscode.Uri,
         client: JiraClient,
         issueKey: string,
+        summary: string,
         onOpenInBrowser: (issue: JiraIssue) => void
     ): Promise<void> {
         const existingPinned = IssuePanel.pinnedPanels.get(issueKey);
@@ -134,9 +135,11 @@ export class IssuePanel {
             return;
         }
 
+        const title = IssuePanel.formatTitle(issueKey, summary, false);
+
         const panel = vscode.window.createWebviewPanel(
             'jiraSidekickIssue',
-            issueKey,
+            title,
             vscode.ViewColumn.One,
             {
                 enableScripts: true,
@@ -147,6 +150,20 @@ export class IssuePanel {
 
         const issuePanel = new IssuePanel(panel, extensionUri, client, onOpenInBrowser, issueKey, true);
         IssuePanel.pinnedPanels.set(issueKey, issuePanel);
+    }
+
+    private static formatTitle(issueKey: string, summary: string, isPreview: boolean): string {
+        const maxLength = vscode.workspace.getConfiguration('jira-sidekick').get<number>('maxTabTitleLength', 30);
+        const truncatedSummary = IssuePanel.truncateText(summary, maxLength);
+        const prefix = isPreview ? '~ ' : '';
+        return `${prefix}${issueKey}: ${truncatedSummary}`;
+    }
+
+    private static truncateText(text: string, maxLength: number): string {
+        if (maxLength <= 0 || text.length <= maxLength) {
+            return text;
+        }
+        return text.slice(0, maxLength) + '...';
     }
 
     private pin(): void {
@@ -183,13 +200,6 @@ export class IssuePanel {
     <script src="${scriptUri}"></script>
 </body>
 </html>`;
-    }
-
-    private truncateText(text: string, maxLength: number): string {
-        if (maxLength <= 0 || text.length <= maxLength) {
-            return text;
-        }
-        return text.slice(0, maxLength) + '...';
     }
 
     private extractMediaInfo(adf: unknown): Array<{ id: string; filename?: string }> {
