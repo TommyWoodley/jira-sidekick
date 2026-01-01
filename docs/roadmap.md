@@ -4,22 +4,6 @@ A roadmap for the jira-sidekick VS Code extension.
 
 ---
 
-## Phase 0 — Setup
-
-### Decisions
-- Jira Cloud only
-- Read-only MVP
-- Repo + CI in place
-
-### Clean architecture boundaries
-- `jira/` — domain + API
-- `ui/` — VS Code only
-- `core/` — state, caching, events
-
-✅ **Output:** empty extension that loads + CI passing
-
----
-
 ## Phase 1 — MVP: Read-only Jira inside VS Code (v0.1)
 
 **Goal:** Immediate value, minimal surface area
