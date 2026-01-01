@@ -47,19 +47,37 @@
         "title": "Open in Browser",
         "category": "Jira Sidekick",
         "icon": "$(link-external)"
+    },
+    {
+        "command": "jira-sidekick.openIssue",
+        "title": "Open Issue Details",
+        "category": "Jira Sidekick",
+        "icon": "$(go-to-file)"
     }
 ],
 "menus": {
     "view/title": [
         {
-            "command": "jira-sidekick.refresh",
-            "when": "view == jira-sidekick.issues",
-            "group": "navigation"
+        "command": "jira-sidekick.refresh",
+        "when": "view == jira-sidekick.issues",
+        "group": "navigation"
         },
         {
-            "command": "jira-sidekick.configure",
-            "when": "view == jira-sidekick.issues",
-            "group": "navigation"
+        "command": "jira-sidekick.configure",
+        "when": "view == jira-sidekick.issues",
+        "group": "navigation"
+        }
+    ],
+    "view/item/context": [
+        {
+            "command": "jira-sidekick.openIssue",
+            "when": "view == jira-sidekick.issues && viewItem == issue",
+            "group": "navigation@1"
+        },
+        {
+            "command": "jira-sidekick.openInBrowser",
+            "when": "view == jira-sidekick.issues && viewItem == issue",
+            "group": "navigation@2"
         }
     ]
     },

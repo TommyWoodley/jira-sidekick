@@ -4,6 +4,7 @@ import { AuthService } from '../jira/auth';
 import { JiraIssue } from '../jira/types';
 import { IssueCache } from '../core/cache';
 import { ConfigPanel } from './configPanel';
+import { IssuePanel } from './issuePanel';
 
 export class CommandsManager {
     private extensionUri: vscode.Uri | undefined;
@@ -20,7 +21,8 @@ export class CommandsManager {
         context.subscriptions.push(
             vscode.commands.registerCommand('jira-sidekick.refresh', () => this.refresh()),
             vscode.commands.registerCommand('jira-sidekick.configure', () => this.configure()),
-            vscode.commands.registerCommand('jira-sidekick.openInBrowser', (issue: JiraIssue) => this.openInBrowser(issue))
+            vscode.commands.registerCommand('jira-sidekick.openInBrowser', (issue: JiraIssue) => this.openInBrowser(issue)),
+            vscode.commands.registerCommand('jira-sidekick.openIssue', (issue: JiraIssue) => this.openIssue(issue))
         );
     }
 
@@ -94,5 +96,16 @@ export class CommandsManager {
         }
         const url = issue.self.replace('/rest/api/3/issue/', '/browse/').replace(/\/\d+$/, `/${issue.key}`);
         vscode.env.openExternal(vscode.Uri.parse(url));
+    }
+
+    async openIssue(issue: JiraIssue): Promise<void> {
+        if (!issue) {
+            return;
+        }
+        await IssuePanel.show(
+            this.client,
+            issue.key,
+            (i) => this.openInBrowser(i)
+        );
     }
 }

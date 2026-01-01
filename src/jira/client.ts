@@ -1,5 +1,5 @@
 import { AuthService } from './auth';
-import { JiraSearchResponse, JiraError, JiraFilter } from './types';
+import { JiraSearchResponse, JiraError, JiraFilter, JiraIssue } from './types';
 
 export class JiraClientError extends Error {
     constructor(
@@ -156,6 +156,44 @@ export class JiraClient {
         } catch {
             return null;
         }
+    }
+
+    async getIssue(issueKey: string): Promise<JiraIssue> {
+        const credentials = await this.authService.getCredentials();
+        if (!credentials) {
+            throw new JiraClientError('No credentials configured');
+        }
+
+        const { baseUrl, email, apiToken } = credentials;
+        const url = new URL(`/rest/api/3/issue/${issueKey}`, baseUrl);
+        url.searchParams.set('fields', 'summary,status,assignee,reporter,priority,issuetype,created,updated,labels,description');
+        const authHeader = Buffer.from(`${email}:${apiToken}`).toString('base64');
+
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'Authorization': `Basic ${authHeader}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            let jiraErrors: JiraError | undefined;
+            try {
+                jiraErrors = await response.json() as JiraError;
+            } catch {
+                // Response may not be JSON
+            }
+
+            if (response.status === 404) {
+                throw new JiraClientError(`Issue ${issueKey} not found`, response.status, jiraErrors);
+            }
+
+            const errorMessage = jiraErrors?.errorMessages?.join(', ') || `Request failed with status ${response.status}`;
+            throw new JiraClientError(errorMessage, response.status, jiraErrors);
+        }
+
+        return await response.json() as JiraIssue;
     }
 }
 

@@ -11,8 +11,8 @@ export class IssueTreeItem extends vscode.TreeItem {
         this.contextValue = 'issue';
 
         this.command = {
-            command: 'jira-sidekick.openInBrowser',
-            title: 'Open in Browser',
+            command: 'jira-sidekick.openIssue',
+            title: 'Open Issue',
             arguments: [issue]
         };
 

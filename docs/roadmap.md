@@ -4,29 +4,6 @@ A roadmap for the jira-sidekick VS Code extension.
 
 ---
 
-## Phase 2 — Issue details & light interaction (v0.2)
-
-**Goal:** Reduce context switching
-
-### Features
-- Issue details webview:
-  - Description
-  - Status
-  - Assignee
-  - Labels
-- Open issue inline (not browser)
-- Manual refresh per issue
-
-### Tech notes
-- Introduce:
-  - Webview message passing
-  - Issue detail cache
-- Still mostly read-only
-
-✅ **Output:** VS Code becomes a Jira viewer
-
----
-
 ## Phase 3 — Write operations (v0.3)
 
 **Goal:** Make Jira actionable from VS Code
