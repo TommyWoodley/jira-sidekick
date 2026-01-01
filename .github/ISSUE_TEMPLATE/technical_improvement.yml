@@ -1,0 +1,140 @@
+name: Technical Improvement
+description: Propose a technical improvement, refactoring, or architectural change
+title: "[TECH]: "
+labels: ["tech-debt", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the codebase! Please provide as much detail as possible.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: A brief one-line description of the improvement
+      placeholder: e.g., "Add Content Security Policy to webviews"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      description: What type of improvement is this?
+      options:
+        - Bug Fix
+        - Performance
+        - Security
+        - Code Quality
+        - Architecture
+        - Developer Experience
+        - Testing
+        - Documentation
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How urgent is this improvement?
+      options:
+        - "🔴 Critical - Blocking issues or security vulnerabilities"
+        - "🟡 Medium - Should be addressed soon"
+        - "🟢 Low - Nice to have"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Effort Estimate
+      description: Approximately how long will this take?
+      options:
+        - "XS (< 1 hour)"
+        - "S (1-2 hours)"
+        - "M (2-4 hours)"
+        - "L (4-8 hours)"
+        - "XL (> 1 day)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Describe the current problem or limitation
+      placeholder: What is broken, slow, or could be better?
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-files
+    attributes:
+      label: Affected Files
+      description: List the files that need to be modified
+      placeholder: |
+        - `src/jira/client.ts`
+        - `src/ui/commands.ts`
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current Behavior
+      description: Code example or description of current state
+      render: typescript
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the proposed improvement
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Details
+      description: Step-by-step implementation plan
+      placeholder: |
+        1. Step one
+        2. Step two
+        3. Step three
+
+  - type: textarea
+    id: code-example
+    attributes:
+      label: Code Example
+      description: Show what the improved code should look like
+      render: typescript
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: What needs to be true for this to be considered complete?
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+        - [ ] Tests added/updated
+        - [ ] Documentation updated (if applicable)
+    validations:
+      required: true
+
+  - type: textarea
+    id: related-issues
+    attributes:
+      label: Related Issues
+      description: Link to related issues or PRs
+      placeholder: "#123, #456"
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, or references
+
