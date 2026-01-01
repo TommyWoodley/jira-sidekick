@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { AuthService } from '../jira/auth';
 import { JiraClient } from '../jira/client';
-import { JiraCredentials } from '../jira/types';
+import { JiraCredentials, JiraFilter } from '../jira/types';
 
 export class ConfigPanel {
     public static currentPanel: ConfigPanel | undefined;
@@ -36,6 +36,12 @@ export class ConfigPanel {
                     case 'load':
                         await this.sendExistingCredentials();
                         break;
+                    case 'loadFilters':
+                        await this.handleLoadFilters();
+                        break;
+                    case 'saveFilter':
+                        await this.handleSaveFilter(message.filterId);
+                        break;
                 }
             },
             null,
@@ -69,13 +75,15 @@ export class ConfigPanel {
 
     private async sendExistingCredentials(): Promise<void> {
         const credentials = await this.authService.getCredentials();
+        const selectedFilter = await this.authService.getSelectedFilter();
         this.panel.webview.postMessage({
             command: 'loadCredentials',
             data: credentials ? {
                 baseUrl: credentials.baseUrl,
                 email: credentials.email,
                 apiToken: ''
-            } : null
+            } : null,
+            selectedFilter
         });
     }
 
@@ -87,6 +95,10 @@ export class ConfigPanel {
             success: result.success,
             message: result.success ? 'Connection successful!' : result.error || 'Connection failed.'
         });
+
+        if (result.success) {
+            await this.handleLoadFilters();
+        }
     }
 
     private async handleSave(data: JiraCredentials): Promise<void> {
@@ -94,9 +106,12 @@ export class ConfigPanel {
         const result = await this.client.testConnection();
         
         if (result.success) {
-            vscode.window.showInformationMessage('Jira credentials saved successfully!');
-            this.onSuccess();
-            this.panel.dispose();
+            this.panel.webview.postMessage({
+                command: 'saveResult',
+                success: true,
+                message: 'Credentials saved! Now select a filter below.'
+            });
+            await this.handleLoadFilters();
         } else {
             this.panel.webview.postMessage({
                 command: 'saveResult',
@@ -104,6 +119,32 @@ export class ConfigPanel {
                 message: result.error || 'Connection failed. Please check your credentials.'
             });
         }
+    }
+
+    private async handleLoadFilters(): Promise<void> {
+        try {
+            const filters = await this.client.getFilters();
+            const selectedFilter = await this.authService.getSelectedFilter();
+            this.panel.webview.postMessage({
+                command: 'filtersLoaded',
+                filters,
+                selectedFilter
+            });
+        } catch (error) {
+            this.panel.webview.postMessage({
+                command: 'filtersError',
+                message: `Failed to load filters: ${error}`
+            });
+        }
+    }
+
+    private async handleSaveFilter(filterId: string | null): Promise<void> {
+        await this.authService.setSelectedFilter(filterId);
+        vscode.window.showInformationMessage(
+            filterId ? 'Filter saved!' : 'Using default "My Issues" view'
+        );
+        this.onSuccess();
+        this.panel.dispose();
     }
 
     private getWebviewContent(): string {
@@ -125,10 +166,19 @@ export class ConfigPanel {
             color: var(--vscode-foreground);
             background: var(--vscode-editor-background);
         }
+        h1, h2 {
+            color: var(--vscode-foreground);
+        }
         h1 {
             font-size: 1.5em;
             margin-bottom: 0.5em;
-            color: var(--vscode-foreground);
+        }
+        h2 {
+            font-size: 1.2em;
+            margin-top: 2em;
+            margin-bottom: 1em;
+            padding-top: 1.5em;
+            border-top: 1px solid var(--vscode-input-border);
         }
         .subtitle {
             color: var(--vscode-descriptionForeground);
@@ -171,7 +221,7 @@ export class ConfigPanel {
         .button-row {
             display: flex;
             gap: 10px;
-            margin-top: 2em;
+            margin-top: 1.5em;
         }
         button {
             padding: 8px 16px;
@@ -181,18 +231,22 @@ export class ConfigPanel {
             cursor: pointer;
             font-weight: 500;
         }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
         .primary {
             background: var(--vscode-button-background);
             color: var(--vscode-button-foreground);
         }
-        .primary:hover {
+        .primary:hover:not(:disabled) {
             background: var(--vscode-button-hoverBackground);
         }
         .secondary {
             background: var(--vscode-button-secondaryBackground);
             color: var(--vscode-button-secondaryForeground);
         }
-        .secondary:hover {
+        .secondary:hover:not(:disabled) {
             background: var(--vscode-button-secondaryHoverBackground);
         }
         .message {
@@ -224,19 +278,64 @@ export class ConfigPanel {
         .token-link:hover {
             background: var(--vscode-button-secondaryHoverBackground);
         }
-        .step-indicator {
+
+        /* Filter picker styles */
+        #filterSection {
+            display: none;
+        }
+        #filterSection.visible {
+            display: block;
+        }
+        .filter-search {
+            position: relative;
+        }
+        .filter-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 4px;
+            margin-top: 0.5em;
+        }
+        .filter-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--vscode-input-border);
             display: flex;
-            gap: 8px;
-            margin-bottom: 2em;
+            justify-content: space-between;
+            align-items: center;
         }
-        .step {
-            flex: 1;
-            height: 4px;
-            background: var(--vscode-input-border);
-            border-radius: 2px;
+        .filter-item:last-child {
+            border-bottom: none;
         }
-        .step.active {
-            background: var(--vscode-button-background);
+        .filter-item:hover {
+            background: var(--vscode-list-hoverBackground);
+        }
+        .filter-item.selected {
+            background: var(--vscode-list-activeSelectionBackground);
+            color: var(--vscode-list-activeSelectionForeground);
+        }
+        .filter-item.default {
+            font-style: italic;
+            color: var(--vscode-descriptionForeground);
+        }
+        .filter-item.default.selected {
+            color: var(--vscode-list-activeSelectionForeground);
+        }
+        .filter-name {
+            font-weight: 500;
+        }
+        .filter-fav {
+            color: var(--vscode-charts-yellow);
+        }
+        .no-filters {
+            padding: 20px;
+            text-align: center;
+            color: var(--vscode-descriptionForeground);
+        }
+        .loading {
+            padding: 20px;
+            text-align: center;
+            color: var(--vscode-descriptionForeground);
         }
     </style>
 </head>
@@ -266,11 +365,28 @@ export class ConfigPanel {
 
         <div class="button-row">
             <button type="button" class="secondary" id="testBtn">Test Connection</button>
-            <button type="submit" class="primary" id="saveBtn">Save & Connect</button>
+            <button type="submit" class="primary" id="saveBtn">Save Credentials</button>
         </div>
     </form>
 
-    <div id="message" class="message"></div>
+    <div id="credMessage" class="message"></div>
+
+    <div id="filterSection">
+        <h2>Select Filter</h2>
+        <p class="help-text">Choose which issues to display in the sidebar</p>
+
+        <div class="form-group filter-search">
+            <input type="text" id="filterSearch" placeholder="Search filters...">
+        </div>
+
+        <div id="filterList" class="filter-list">
+            <div class="loading">Loading filters...</div>
+        </div>
+
+        <div class="button-row">
+            <button type="button" class="primary" id="saveFilterBtn" disabled>Save & Close</button>
+        </div>
+    </div>
 
     <script>
         const vscode = acquireVsCodeApi();
@@ -280,7 +396,14 @@ export class ConfigPanel {
         const emailInput = document.getElementById('email');
         const apiTokenInput = document.getElementById('apiToken');
         const testBtn = document.getElementById('testBtn');
-        const messageDiv = document.getElementById('message');
+        const credMessageDiv = document.getElementById('credMessage');
+        const filterSection = document.getElementById('filterSection');
+        const filterSearchInput = document.getElementById('filterSearch');
+        const filterListDiv = document.getElementById('filterList');
+        const saveFilterBtn = document.getElementById('saveFilterBtn');
+
+        let allFilters = [];
+        let selectedFilterId = null;
 
         document.getElementById('getTokenLink').addEventListener('click', (e) => {
             e.preventDefault();
@@ -300,15 +423,15 @@ export class ConfigPanel {
             };
         }
 
-        function showMessage(text, isSuccess) {
-            messageDiv.textContent = text;
-            messageDiv.className = 'message ' + (isSuccess ? 'success' : 'error');
+        function showCredMessage(text, isSuccess) {
+            credMessageDiv.textContent = text;
+            credMessageDiv.className = 'message ' + (isSuccess ? 'success' : 'error');
         }
 
         testBtn.addEventListener('click', () => {
             const data = getFormData();
             if (!data.baseUrl || !data.email || !data.apiToken) {
-                showMessage('Please fill in all fields', false);
+                showCredMessage('Please fill in all fields', false);
                 return;
             }
             testBtn.disabled = true;
@@ -320,13 +443,68 @@ export class ConfigPanel {
             e.preventDefault();
             const data = getFormData();
             if (!data.baseUrl || !data.email || !data.apiToken) {
-                showMessage('Please fill in all fields', false);
+                showCredMessage('Please fill in all fields', false);
                 return;
             }
             document.getElementById('saveBtn').disabled = true;
-            document.getElementById('saveBtn').textContent = 'Connecting...';
+            document.getElementById('saveBtn').textContent = 'Saving...';
             vscode.postMessage({ command: 'save', data });
         });
+
+        filterSearchInput.addEventListener('input', () => {
+            renderFilterList();
+        });
+
+        saveFilterBtn.addEventListener('click', () => {
+            vscode.postMessage({ command: 'saveFilter', filterId: selectedFilterId });
+        });
+
+        function renderFilterList() {
+            const searchTerm = filterSearchInput.value.toLowerCase();
+            const filtered = allFilters.filter(f =>
+                f.name.toLowerCase().includes(searchTerm)
+            );
+
+            let html = '';
+
+            // Default option
+            const defaultSelected = selectedFilterId === null;
+            if ('my issues'.includes(searchTerm) || searchTerm === '') {
+                html += '<div class="filter-item default' + (defaultSelected ? ' selected' : '') + '" data-filter-id="">'+
+                    '<span class="filter-name">My Issues (Default)</span>'+
+                    '</div>';
+            }
+
+            if (filtered.length === 0 && searchTerm !== '') {
+                html += '<div class="no-filters">No filters match your search</div>';
+            } else {
+                filtered.forEach(filter => {
+                    const isSelected = selectedFilterId === filter.id;
+                    html += '<div class="filter-item' + (isSelected ? ' selected' : '') + '" data-filter-id="' + filter.id + '">' +
+                        '<span class="filter-name">' + escapeHtml(filter.name) + '</span>' +
+                        (filter.favourite ? '<span class="filter-fav">★</span>' : '') +
+                        '</div>';
+                });
+            }
+
+            filterListDiv.innerHTML = html;
+
+            // Add click handlers
+            filterListDiv.querySelectorAll('.filter-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const filterId = item.dataset.filterId;
+                    selectedFilterId = filterId === '' ? null : filterId;
+                    renderFilterList();
+                    saveFilterBtn.disabled = false;
+                });
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
 
         window.addEventListener('message', (event) => {
             const message = event.data;
@@ -336,16 +514,41 @@ export class ConfigPanel {
                         baseUrlInput.value = message.data.baseUrl || '';
                         emailInput.value = message.data.email || '';
                     }
+                    if (message.selectedFilter) {
+                        selectedFilterId = message.selectedFilter;
+                    }
+                    // If we have credentials, try to load filters
+                    if (message.data && message.data.baseUrl && message.data.email) {
+                        vscode.postMessage({ command: 'loadFilters' });
+                    }
                     break;
                 case 'testResult':
                     testBtn.disabled = false;
                     testBtn.textContent = 'Test Connection';
-                    showMessage(message.message, message.success);
+                    showCredMessage(message.message, message.success);
+                    if (message.success) {
+                        filterSection.classList.add('visible');
+                    }
                     break;
                 case 'saveResult':
                     document.getElementById('saveBtn').disabled = false;
-                    document.getElementById('saveBtn').textContent = 'Save & Connect';
-                    showMessage(message.message, message.success);
+                    document.getElementById('saveBtn').textContent = 'Save Credentials';
+                    showCredMessage(message.message, message.success);
+                    if (message.success) {
+                        filterSection.classList.add('visible');
+                    }
+                    break;
+                case 'filtersLoaded':
+                    allFilters = message.filters || [];
+                    if (message.selectedFilter) {
+                        selectedFilterId = message.selectedFilter;
+                    }
+                    filterSection.classList.add('visible');
+                    renderFilterList();
+                    saveFilterBtn.disabled = false;
+                    break;
+                case 'filtersError':
+                    filterListDiv.innerHTML = '<div class="no-filters">' + message.message + '</div>';
                     break;
             }
         });
@@ -367,4 +570,3 @@ export class ConfigPanel {
         }
     }
 }
-

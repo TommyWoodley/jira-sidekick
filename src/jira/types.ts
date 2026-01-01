@@ -69,3 +69,10 @@ export interface JiraError {
     errors: Record<string, string>;
 }
 
+export interface JiraFilter {
+    id: string;
+    name: string;
+    jql: string;
+    favourite: boolean;
+}
+

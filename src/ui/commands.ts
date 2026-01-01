@@ -38,8 +38,21 @@ export class CommandsManager {
         }
 
         try {
-            const jql = vscode.workspace.getConfiguration('jira-sidekick').get<string>('jql') 
-                || 'assignee = currentUser() ORDER BY updated DESC';
+            let jql: string;
+            const selectedFilterId = await this.authService.getSelectedFilter();
+
+            if (selectedFilterId) {
+                const filter = await this.client.getFilterById(selectedFilterId);
+                if (filter) {
+                    jql = filter.jql;
+                } else {
+                    jql = vscode.workspace.getConfiguration('jira-sidekick').get<string>('jql')
+                        || 'assignee = currentUser() ORDER BY updated DESC';
+                }
+            } else {
+                jql = vscode.workspace.getConfiguration('jira-sidekick').get<string>('jql')
+                    || 'assignee = currentUser() ORDER BY updated DESC';
+            }
             
             const response = await this.client.searchIssues(jql);
             this.cache.setIssues(response.issues);

@@ -1,5 +1,5 @@
 import { AuthService } from './auth';
-import { JiraSearchResponse, JiraError } from './types';
+import { JiraSearchResponse, JiraError, JiraFilter } from './types';
 
 export class JiraClientError extends Error {
     constructor(
@@ -100,6 +100,61 @@ export class JiraClient {
                 return { success: false, error: 'Network error. Check your URL and internet connection.' };
             }
             return { success: false, error: message };
+        }
+    }
+
+    async getFilters(): Promise<JiraFilter[]> {
+        const credentials = await this.authService.getCredentials();
+        if (!credentials) {
+            throw new JiraClientError('No credentials configured');
+        }
+
+        const { baseUrl, email, apiToken } = credentials;
+        const url = new URL('/rest/api/3/filter/my', baseUrl);
+        const authHeader = Buffer.from(`${email}:${apiToken}`).toString('base64');
+
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'Authorization': `Basic ${authHeader}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new JiraClientError(`Failed to fetch filters: ${response.status}`);
+        }
+
+        const data = await response.json() as JiraFilter[];
+        return data;
+    }
+
+    async getFilterById(filterId: string): Promise<JiraFilter | null> {
+        const credentials = await this.authService.getCredentials();
+        if (!credentials) {
+            return null;
+        }
+
+        const { baseUrl, email, apiToken } = credentials;
+        const url = new URL(`/rest/api/3/filter/${filterId}`, baseUrl);
+        const authHeader = Buffer.from(`${email}:${apiToken}`).toString('base64');
+
+        try {
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Basic ${authHeader}`,
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                return null;
+            }
+
+            return await response.json() as JiraFilter;
+        } catch {
+            return null;
         }
     }
 }
