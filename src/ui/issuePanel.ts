@@ -87,10 +87,16 @@ export class IssuePanel {
             const truncatedSummary = this.truncateText(issue.fields.summary, maxLength);
             this.panel.title = `${issue.key}: ${truncatedSummary}`;
 
-            // Pass issue with raw ADF description directly to webview
+            // Pre-fetch up to 3 images from ADF media nodes
+            const attachmentMaps = this.buildAttachmentMaps(issue);
+            const mediaInfo = this.extractMediaInfo(issue.fields.description);
+            const imageMap = await this.prefetchImages(mediaInfo, attachmentMaps, 3);
+
+            // Pass issue with imageMap to webview
             this.panel.webview.postMessage({
                 command: 'loadIssue',
-                issue
+                issue,
+                imageMap
             });
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
@@ -123,6 +129,105 @@ export class IssuePanel {
             return text;
         }
         return text.slice(0, maxLength) + '...';
+    }
+
+    // Extract media info from ADF nodes
+    private extractMediaInfo(adf: unknown): Array<{ id: string; filename?: string }> {
+        const mediaInfo: Array<{ id: string; filename?: string }> = [];
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const traverse = (node: any) => {
+            if (!node) return;
+
+            if (node.type === 'media' && node.attrs) {
+                const id = node.attrs.id as string;
+                const filename = node.attrs.alt as string;
+                if (id) {
+                    mediaInfo.push({ id, filename });
+                }
+            }
+
+            if (node.content && Array.isArray(node.content)) {
+                for (const child of node.content) {
+                    traverse(child);
+                }
+            }
+        };
+
+        traverse(adf);
+        return mediaInfo;
+    }
+
+    // Build maps for both ID-based and filename-based lookup
+    private buildAttachmentMaps(issue: JiraIssue): {
+        byId: Record<string, string>;
+        byFilename: Record<string, string>;
+    } {
+        const byId: Record<string, string> = {};
+        const byFilename: Record<string, string> = {};
+
+        for (const att of issue.fields.attachment || []) {
+            byId[att.id] = att.content;
+            byFilename[att.filename.toLowerCase()] = att.content;
+        }
+
+        return { byId, byFilename };
+    }
+
+    private async prefetchImages(
+        mediaInfo: Array<{ id: string; filename?: string }>,
+        attachmentMaps: { byId: Record<string, string>; byFilename: Record<string, string> },
+        maxCount: number
+    ): Promise<Record<string, string>> {
+        const imageMap: Record<string, string> = {};
+        const toFetch = mediaInfo.slice(0, maxCount);
+
+        const results = await Promise.allSettled(
+            toFetch.map(async ({ id, filename }) => {
+                // Try matching by ID first, then by filename
+                let contentUrl = attachmentMaps.byId[id];
+                if (!contentUrl && filename) {
+                    contentUrl = attachmentMaps.byFilename[filename.toLowerCase()];
+                }
+
+                if (!contentUrl) {
+                    return { id, dataUrl: null };
+                }
+
+                try {
+                    const buffer = await this.client.downloadAttachment(contentUrl);
+                    const mimeType = this.getMimeType(contentUrl);
+                    const base64 = buffer.toString('base64');
+                    return { id, dataUrl: `data:${mimeType};base64,${base64}` };
+                } catch {
+                    return { id, dataUrl: null };
+                }
+            })
+        );
+
+        for (const result of results) {
+            if (result.status === 'fulfilled' && result.value.dataUrl) {
+                imageMap[result.value.id] = result.value.dataUrl;
+            }
+        }
+
+        return imageMap;
+    }
+
+    private getMimeType(url: string): string {
+        const urlLower = url.toLowerCase();
+        if (urlLower.includes('.jpg') || urlLower.includes('.jpeg')) {
+            return 'image/jpeg';
+        } else if (urlLower.includes('.gif')) {
+            return 'image/gif';
+        } else if (urlLower.includes('.webp')) {
+            return 'image/webp';
+        } else if (urlLower.includes('.svg')) {
+            return 'image/svg+xml';
+        } else if (urlLower.includes('.png')) {
+            return 'image/png';
+        }
+        return 'image/png';
     }
 
     private async handleSaveAttachment(attachment: { id: string; filename: string; content: string }): Promise<void> {
