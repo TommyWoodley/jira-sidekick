@@ -92,6 +92,12 @@
                 "type": "string",
                 "default": "assignee = currentUser() ORDER BY updated DESC",
                 "description": "JQL query to fetch issues"
+            },
+            "jira-sidekick.maxTabTitleLength": {
+                "type": "number",
+                "default": 30,
+                "scope": "window",
+                "description": "Maximum number of characters to display for issue summaries in editor tab titles. Set to 0 to disable truncation."
             }
         }
     }

@@ -68,12 +68,21 @@ export class IssuePanel {
         try {
             const issue = await this.client.getIssue(issueKey);
             this.currentIssue = issue;
-            this.panel.title = `${issue.key}: ${issue.fields.summary}`;
+            const maxLength = vscode.workspace.getConfiguration('jira-sidekick').get<number>('maxTabTitleLength', 30);
+            const truncatedSummary = this.truncateText(issue.fields.summary, maxLength);
+            this.panel.title = `${issue.key}: ${truncatedSummary}`;
             this.panel.webview.html = this.getIssueContent(issue);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             this.panel.webview.html = this.getErrorContent(issueKey, message);
         }
+    }
+
+    private truncateText(text: string, maxLength: number): string {
+        if (maxLength <= 0 || text.length <= maxLength) {
+            return text;
+        }
+        return text.slice(0, maxLength) + '...';
     }
 
     private getLoadingContent(issueKey: string): string {
