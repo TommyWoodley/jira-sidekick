@@ -1,13 +1,16 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, state, property } from 'lit/decorators.js';
 import '@vscode-elements/elements/dist/vscode-button/index.js';
 import '@vscode-elements/elements/dist/vscode-badge/index.js';
 import '@vscode-elements/elements/dist/vscode-divider/index.js';
 import '@vscode-elements/elements/dist/vscode-progress-ring/index.js';
 import '../shared/adf-renderer';
-import { postMessage } from '../shared/vscode-api';
 import { sharedStyles } from '../shared/styles';
-import type { JiraIssue, JiraAttachment } from '../shared/types';
+import { createApiClient } from '../shared/rpc-client';
+import type { IssueApi } from '@shared/api';
+import type { JiraIssue, JiraAttachment } from '@shared/models';
+
+const api = createApiClient<IssueApi>();
 
 @customElement('issue-app')
 export class IssueApp extends LitElement {
@@ -214,49 +217,50 @@ export class IssueApp extends LitElement {
     `,
   ];
 
+  @property({ attribute: 'data-issue-key' }) issueKey = '';
+
   @state() private issue: JiraIssue | null = null;
   @state() private isLoading = true;
   @state() private error: { issueKey: string; message: string } | null = null;
-  @state() private loadingIssueKey = '';
   @state() private imageMap: Record<string, string> = {};
 
-  connectedCallback() {
+  async connectedCallback() {
     super.connectedCallback();
-    window.addEventListener('message', this.handleMessage);
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    window.removeEventListener('message', this.handleMessage);
-  }
-
-  private handleMessage = (event: MessageEvent) => {
-    const message = event.data;
-    switch (message.command) {
-      case 'loading':
-        this.isLoading = true;
-        this.loadingIssueKey = message.issueKey;
-        this.error = null;
-        break;
-      case 'loadIssue':
-        this.isLoading = false;
-        this.issue = message.issue;
-        this.imageMap = message.imageMap || {};
-        this.error = null;
-        break;
-      case 'error':
-        this.isLoading = false;
-        this.error = { issueKey: message.issueKey, message: message.message };
-        break;
+    if (this.issueKey) {
+      await this.loadIssue(this.issueKey);
     }
-  };
+  }
 
-  private handleRefresh() {
-    postMessage({ command: 'refresh' });
+  private async loadIssue(issueKey: string) {
+    this.isLoading = true;
+    this.error = null;
+    try {
+      const { issue, imageMap } = await api.loadIssue(issueKey);
+      this.issue = issue;
+      this.imageMap = imageMap;
+      this.isLoading = false;
+    } catch (err) {
+      this.isLoading = false;
+      this.error = { issueKey, message: String(err) };
+    }
+  }
+
+  private async handleRefresh() {
+    this.isLoading = true;
+    this.error = null;
+    try {
+      const { issue, imageMap } = await api.refresh();
+      this.issue = issue;
+      this.imageMap = imageMap;
+      this.isLoading = false;
+    } catch (err) {
+      this.isLoading = false;
+      this.error = { issueKey: this.issue?.key || '', message: String(err) };
+    }
   }
 
   private handleOpenInBrowser() {
-    postMessage({ command: 'openInBrowser' });
+    api.openInBrowser();
   }
 
   private getStatusClass(categoryKey: string): string {
@@ -285,18 +289,15 @@ export class IssueApp extends LitElement {
   }
 
   private handleOpenAttachment(attachment: JiraAttachment) {
-    postMessage({ command: 'openAttachment', url: attachment.content });
+    api.openAttachment(attachment.content);
   }
 
-  private handleSaveAttachment(e: MouseEvent, attachment: JiraAttachment) {
+  private async handleSaveAttachment(e: MouseEvent, attachment: JiraAttachment) {
     e.preventDefault();
-    postMessage({
-      command: 'saveAttachment',
-      attachment: {
-        id: attachment.id,
-        filename: attachment.filename,
-        content: attachment.content
-      }
+    await api.saveAttachment({
+      id: attachment.id,
+      filename: attachment.filename,
+      content: attachment.content
     });
   }
 
@@ -305,7 +306,7 @@ export class IssueApp extends LitElement {
       return html`
         <div class="loading">
           <vscode-progress-ring></vscode-progress-ring>
-          <div>Loading ${this.loadingIssueKey}...</div>
+          <div>Loading ${this.issueKey || 'issue'}...</div>
         </div>
       `;
     }
@@ -429,5 +430,3 @@ declare global {
     'issue-app': IssueApp;
   }
 }
-
-

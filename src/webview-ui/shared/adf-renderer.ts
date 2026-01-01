@@ -1,6 +1,6 @@
 import { LitElement, html, css, TemplateResult, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { AdfNode, AdfMark } from './types';
+import type { AdfNode, AdfMark } from '@shared/models';
 
 @customElement('adf-renderer')
 export class AdfRenderer extends LitElement {

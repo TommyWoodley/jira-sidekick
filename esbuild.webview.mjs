@@ -1,5 +1,8 @@
 import * as esbuild from 'esbuild';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isWatch = process.argv.includes('--watch');
 
 const buildOptions = {
@@ -12,6 +15,9 @@ const buildOptions = {
   format: 'iife',
   minify: !isWatch,
   sourcemap: isWatch,
+  alias: {
+    '@shared': path.resolve(__dirname, 'src/shared'),
+  },
 };
 
 if (isWatch) {

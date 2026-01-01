@@ -4,9 +4,12 @@ import '@vscode-elements/elements/dist/vscode-button/index.js';
 import '@vscode-elements/elements/dist/vscode-textfield/index.js';
 import '@vscode-elements/elements/dist/vscode-label/index.js';
 import '@vscode-elements/elements/dist/vscode-divider/index.js';
-import { postMessage } from '../shared/vscode-api';
 import { sharedStyles } from '../shared/styles';
-import type { JiraCredentials, JiraFilter } from '../shared/types';
+import { createApiClient } from '../shared/rpc-client';
+import type { ConfigApi } from '@shared/api';
+import type { JiraCredentials, JiraFilter } from '@shared/models';
+
+const api = createApiClient<ConfigApi>();
 
 @customElement('config-app')
 export class ConfigApp extends LitElement {
@@ -119,74 +122,79 @@ export class ConfigApp extends LitElement {
   @state() private filterSearch = '';
   @state() private filtersError: string | null = null;
 
-  connectedCallback() {
+  async connectedCallback() {
     super.connectedCallback();
-    window.addEventListener('message', this.handleMessage);
-    postMessage({ command: 'load' });
+    await this.loadCredentials();
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    window.removeEventListener('message', this.handleMessage);
-  }
-
-  private handleMessage = (event: MessageEvent) => {
-    const message = event.data;
-    switch (message.command) {
-      case 'loadCredentials':
-        if (message.data) {
-          this.credentials = {
-            baseUrl: message.data.baseUrl || '',
-            email: message.data.email || '',
-            apiToken: '',
-          };
-        }
-        if (message.selectedFilter) {
-          this.selectedFilterId = message.selectedFilter;
-        }
-        if (message.data?.baseUrl && message.data?.email) {
-          postMessage({ command: 'loadFilters' });
-        }
-        break;
-      case 'testResult':
-        this.isLoading = false;
-        this.message = { text: message.message, isSuccess: message.success };
-        if (message.success) {
-          this.showFilters = true;
-        }
-        break;
-      case 'saveResult':
-        this.isLoading = false;
-        this.message = { text: message.message, isSuccess: message.success };
-        if (message.success) {
-          this.showFilters = true;
-        }
-        break;
-      case 'filtersLoaded':
-        this.filters = message.filters || [];
-        if (message.selectedFilter) {
-          this.selectedFilterId = message.selectedFilter;
-        }
-        this.showFilters = true;
-        this.filtersError = null;
-        break;
-      case 'filtersError':
-        this.filtersError = message.message;
-        break;
+  private async loadCredentials() {
+    try {
+      const { credentials, selectedFilter } = await api.getCredentials();
+      if (credentials) {
+        this.credentials = {
+          baseUrl: credentials.baseUrl || '',
+          email: credentials.email || '',
+          apiToken: '',
+        };
+      }
+      if (selectedFilter) {
+        this.selectedFilterId = selectedFilter;
+      }
+      if (credentials?.baseUrl && credentials?.email) {
+        await this.loadFiltersQuietly();
+      }
+    } catch (error) {
+      console.error('Failed to load credentials:', error);
     }
-  };
+  }
 
-  private handleTest() {
+  private async loadFiltersQuietly() {
+    try {
+      const { filters, selectedFilter } = await api.loadFilters();
+      this.filters = filters;
+      if (selectedFilter) {
+        this.selectedFilterId = selectedFilter;
+      }
+      this.showFilters = true;
+      this.filtersError = null;
+    } catch (error) {
+      this.filtersError = `Failed to load filters: ${error}`;
+    }
+  }
+
+  private async handleTest() {
     if (!this.validateForm()) return;
     this.isLoading = true;
-    postMessage({ command: 'test', data: this.credentials });
+    try {
+      const { success, message } = await api.testConnection(this.credentials);
+      this.message = { text: message, isSuccess: success };
+      if (success) {
+        this.showFilters = true;
+        await this.loadFiltersQuietly();
+      }
+    } catch (error) {
+      this.message = { text: String(error), isSuccess: false };
+    } finally {
+      this.isLoading = false;
+    }
   }
 
-  private handleSave(e: Event) {
+  private async handleSave(e: Event) {
     e.preventDefault();
     if (!this.validateForm()) return;
     this.isLoading = true;
-    postMessage({ command: 'save', data: this.credentials });
+    try {
+      const { success, message } = await api.saveCredentials(this.credentials);
+      this.message = { text: message, isSuccess: success };
+      if (success) {
+        this.showFilters = true;
+        await this.loadFiltersQuietly();
+      }
+    } catch (error) {
+      this.message = { text: String(error), isSuccess: false };
+    } finally {
+      this.isLoading = false;
+    }
   }
 
   private validateForm(): boolean {
@@ -198,15 +206,15 @@ export class ConfigApp extends LitElement {
   }
 
   private handleOpenTokenPage() {
-    postMessage({ command: 'openTokenPage' });
+    api.openTokenPage();
   }
 
   private handleSelectFilter(filterId: string | null) {
     this.selectedFilterId = filterId;
   }
 
-  private handleSaveFilter() {
-    postMessage({ command: 'saveFilter', filterId: this.selectedFilterId });
+  private async handleSaveFilter() {
+    await api.saveFilter(this.selectedFilterId);
   }
 
   private get filteredFilters() {
@@ -345,5 +353,3 @@ declare global {
     'config-app': ConfigApp;
   }
 }
-
-

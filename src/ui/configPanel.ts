@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import { AuthService } from '../jira/auth';
 import { JiraClient } from '../jira/client';
-import { JiraCredentials, JiraFilter } from '../jira/types';
+import type { ConfigApi } from '../shared/api';
+import type { JiraCredentials } from '../shared/models';
+import { exposeApi } from '../shared/rpc';
 
 export class ConfigPanel {
     public static currentPanel: ConfigPanel | undefined;
@@ -17,37 +19,67 @@ export class ConfigPanel {
     ) {
         this.panel = panel;
         this.panel.webview.html = this.getWebviewContent();
-
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
 
-        this.panel.webview.onDidReceiveMessage(
-            async (message) => {
-                switch (message.command) {
-                    case 'save':
-                        await this.handleSave(message.data);
-                        break;
-                    case 'test':
-                        await this.handleTest(message.data);
-                        break;
-                    case 'openTokenPage':
-                        vscode.env.openExternal(
-                            vscode.Uri.parse('https://id.atlassian.com/manage-profile/security/api-tokens')
-                        );
-                        break;
-                    case 'load':
-                        await this.sendExistingCredentials();
-                        break;
-                    case 'loadFilters':
-                        await this.handleLoadFilters();
-                        break;
-                    case 'saveFilter':
-                        await this.handleSaveFilter(message.filterId);
-                        break;
-                }
+        const apiDisposable = exposeApi<ConfigApi>(this.panel.webview, this.createApi());
+        this.disposables.push(apiDisposable);
+    }
+
+    private createApi(): ConfigApi {
+        return {
+            getCredentials: async () => {
+                const credentials = await this.authService.getCredentials();
+                const selectedFilter = await this.authService.getSelectedFilter();
+                return {
+                    credentials: credentials ? {
+                        baseUrl: credentials.baseUrl,
+                        email: credentials.email,
+                    } : null,
+                    selectedFilter,
+                };
             },
-            null,
-            this.disposables
-        );
+
+            testConnection: async (credentials: JiraCredentials) => {
+                await this.authService.setCredentials(credentials);
+                const result = await this.client.testConnection();
+                return {
+                    success: result.success,
+                    message: result.success ? 'Connection successful!' : result.error || 'Connection failed.',
+                };
+            },
+
+            saveCredentials: async (credentials: JiraCredentials) => {
+                await this.authService.setCredentials(credentials);
+                const result = await this.client.testConnection();
+                return {
+                    success: result.success,
+                    message: result.success
+                        ? 'Credentials saved! Now select a filter below.'
+                        : result.error || 'Connection failed. Please check your credentials.',
+                };
+            },
+
+            loadFilters: async () => {
+                const filters = await this.client.getFilters();
+                const selectedFilter = await this.authService.getSelectedFilter();
+                return { filters, selectedFilter };
+            },
+
+            saveFilter: async (filterId: string | null) => {
+                await this.authService.setSelectedFilter(filterId);
+                vscode.window.showInformationMessage(
+                    filterId ? 'Filter saved!' : 'Using default "My Issues" view'
+                );
+                this.onSuccess();
+                this.panel.dispose();
+            },
+
+            openTokenPage: () => {
+                vscode.env.openExternal(
+                    vscode.Uri.parse('https://id.atlassian.com/manage-profile/security/api-tokens')
+                );
+            },
+        };
     }
 
     public static async show(
@@ -73,80 +105,6 @@ export class ConfigPanel {
         );
 
         ConfigPanel.currentPanel = new ConfigPanel(panel, extensionUri, authService, client, onSuccess);
-    }
-
-    private async sendExistingCredentials(): Promise<void> {
-        const credentials = await this.authService.getCredentials();
-        const selectedFilter = await this.authService.getSelectedFilter();
-        this.panel.webview.postMessage({
-            command: 'loadCredentials',
-            data: credentials ? {
-                baseUrl: credentials.baseUrl,
-                email: credentials.email,
-                apiToken: ''
-            } : null,
-            selectedFilter
-        });
-    }
-
-    private async handleTest(data: JiraCredentials): Promise<void> {
-        await this.authService.setCredentials(data);
-        const result = await this.client.testConnection();
-        this.panel.webview.postMessage({
-            command: 'testResult',
-            success: result.success,
-            message: result.success ? 'Connection successful!' : result.error || 'Connection failed.'
-        });
-
-        if (result.success) {
-            await this.handleLoadFilters();
-        }
-    }
-
-    private async handleSave(data: JiraCredentials): Promise<void> {
-        await this.authService.setCredentials(data);
-        const result = await this.client.testConnection();
-        
-        if (result.success) {
-            this.panel.webview.postMessage({
-                command: 'saveResult',
-                success: true,
-                message: 'Credentials saved! Now select a filter below.'
-            });
-            await this.handleLoadFilters();
-        } else {
-            this.panel.webview.postMessage({
-                command: 'saveResult',
-                success: false,
-                message: result.error || 'Connection failed. Please check your credentials.'
-            });
-        }
-    }
-
-    private async handleLoadFilters(): Promise<void> {
-        try {
-            const filters = await this.client.getFilters();
-            const selectedFilter = await this.authService.getSelectedFilter();
-            this.panel.webview.postMessage({
-                command: 'filtersLoaded',
-                filters,
-                selectedFilter
-            });
-        } catch (error) {
-            this.panel.webview.postMessage({
-                command: 'filtersError',
-                message: `Failed to load filters: ${error}`
-            });
-        }
-    }
-
-    private async handleSaveFilter(filterId: string | null): Promise<void> {
-        await this.authService.setSelectedFilter(filterId);
-        vscode.window.showInformationMessage(
-            filterId ? 'Filter saved!' : 'Using default "My Issues" view'
-        );
-        this.onSuccess();
-        this.panel.dispose();
     }
 
     private getWebviewContent(): string {

@@ -1,53 +1,80 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { JiraIssue } from '../jira/types';
 import { JiraClient } from '../jira/client';
+import type { IssueApi } from '../shared/api';
+import type { JiraIssue } from '../shared/models';
+import { exposeApi } from '../shared/rpc';
 
 export class IssuePanel {
     public static currentPanel: IssuePanel | undefined;
     private readonly panel: vscode.WebviewPanel;
     private disposables: vscode.Disposable[] = [];
     private currentIssue: JiraIssue | undefined;
+    private currentIssueKey: string;
 
     private constructor(
         panel: vscode.WebviewPanel,
         private readonly extensionUri: vscode.Uri,
         private readonly client: JiraClient,
-        private readonly onOpenInBrowser: (issue: JiraIssue) => void
+        private readonly onOpenInBrowser: (issue: JiraIssue) => void,
+        issueKey: string
     ) {
         this.panel = panel;
+        this.currentIssueKey = issueKey;
         this.panel.webview.html = this.getWebviewContent();
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
 
-        this.panel.webview.onDidReceiveMessage(
-            async (message) => {
-                switch (message.command) {
-                    case 'refresh':
-                        if (this.currentIssue) {
-                            await this.loadIssue(this.currentIssue.key);
-                        }
-                        break;
-                    case 'openInBrowser':
-                        if (this.currentIssue) {
-                            this.onOpenInBrowser(this.currentIssue);
-                        }
-                        break;
-                    case 'openAttachment':
-                        if (message.url) {
-                            vscode.env.openExternal(vscode.Uri.parse(message.url));
-                        }
-                        break;
-                    case 'saveAttachment':
-                        if (message.attachment) {
-                            await this.handleSaveAttachment(message.attachment);
-                        }
-                        break;
+        const apiDisposable = exposeApi<IssueApi>(this.panel.webview, this.createApi());
+        this.disposables.push(apiDisposable);
+    }
+
+    private createApi(): IssueApi {
+        return {
+            loadIssue: async (issueKey: string) => {
+                this.currentIssueKey = issueKey;
+                const issue = await this.client.getIssue(issueKey);
+                this.currentIssue = issue;
+
+                const maxLength = vscode.workspace.getConfiguration('jira-sidekick').get<number>('maxTabTitleLength', 30);
+                const truncatedSummary = this.truncateText(issue.fields.summary, maxLength);
+                this.panel.title = `${issue.key}: ${truncatedSummary}`;
+
+                const attachmentMaps = this.buildAttachmentMaps(issue);
+                const mediaInfo = this.extractMediaInfo(issue.fields.description);
+                const imageMap = await this.prefetchImages(mediaInfo, attachmentMaps, 3);
+
+                return { issue, imageMap };
+            },
+
+            refresh: async () => {
+                if (!this.currentIssueKey) {
+                    throw new Error('No issue loaded');
+                }
+                const issue = await this.client.getIssue(this.currentIssueKey);
+                this.currentIssue = issue;
+
+                const attachmentMaps = this.buildAttachmentMaps(issue);
+                const mediaInfo = this.extractMediaInfo(issue.fields.description);
+                const imageMap = await this.prefetchImages(mediaInfo, attachmentMaps, 3);
+
+                return { issue, imageMap };
+            },
+
+            openInBrowser: () => {
+                if (this.currentIssue) {
+                    this.onOpenInBrowser(this.currentIssue);
                 }
             },
-            null,
-            this.disposables
-        );
+
+            openAttachment: (url: string) => {
+                vscode.env.openExternal(vscode.Uri.parse(url));
+            },
+
+            saveAttachment: async (attachment: { id: string; filename: string; content: string }) => {
+                await this.handleSaveAttachment(attachment);
+            },
+        };
     }
 
     public static async show(
@@ -58,7 +85,8 @@ export class IssuePanel {
     ): Promise<void> {
         if (IssuePanel.currentPanel) {
             IssuePanel.currentPanel.panel.reveal();
-            await IssuePanel.currentPanel.loadIssue(issueKey);
+            IssuePanel.currentPanel.currentIssueKey = issueKey;
+            IssuePanel.currentPanel.panel.webview.html = IssuePanel.currentPanel.getWebviewContent();
             return;
         }
 
@@ -73,35 +101,7 @@ export class IssuePanel {
             }
         );
 
-        IssuePanel.currentPanel = new IssuePanel(panel, extensionUri, client, onOpenInBrowser);
-        await IssuePanel.currentPanel.loadIssue(issueKey);
-    }
-
-    private async loadIssue(issueKey: string): Promise<void> {
-        this.panel.webview.postMessage({ command: 'loading', issueKey });
-
-        try {
-            const issue = await this.client.getIssue(issueKey);
-            this.currentIssue = issue;
-            const maxLength = vscode.workspace.getConfiguration('jira-sidekick').get<number>('maxTabTitleLength', 30);
-            const truncatedSummary = this.truncateText(issue.fields.summary, maxLength);
-            this.panel.title = `${issue.key}: ${truncatedSummary}`;
-
-            // Pre-fetch up to 3 images from ADF media nodes
-            const attachmentMaps = this.buildAttachmentMaps(issue);
-            const mediaInfo = this.extractMediaInfo(issue.fields.description);
-            const imageMap = await this.prefetchImages(mediaInfo, attachmentMaps, 3);
-
-            // Pass issue with imageMap to webview
-            this.panel.webview.postMessage({
-                command: 'loadIssue',
-                issue,
-                imageMap
-            });
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            this.panel.webview.postMessage({ command: 'error', issueKey, message });
-        }
+        IssuePanel.currentPanel = new IssuePanel(panel, extensionUri, client, onOpenInBrowser, issueKey);
     }
 
     private getWebviewContent(): string {
@@ -109,6 +109,8 @@ export class IssuePanel {
         const scriptUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, 'out', 'webview-ui', 'issue-app.js')
         );
+
+        const issueKey = this.currentIssueKey || '';
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -118,7 +120,7 @@ export class IssuePanel {
     <title>Issue Panel</title>
 </head>
 <body>
-    <issue-app></issue-app>
+    <issue-app data-issue-key="${issueKey}"></issue-app>
     <script src="${scriptUri}"></script>
 </body>
 </html>`;
@@ -131,24 +133,24 @@ export class IssuePanel {
         return text.slice(0, maxLength) + '...';
     }
 
-    // Extract media info from ADF nodes
     private extractMediaInfo(adf: unknown): Array<{ id: string; filename?: string }> {
         const mediaInfo: Array<{ id: string; filename?: string }> = [];
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const traverse = (node: any) => {
-            if (!node) return;
+        const traverse = (node: unknown) => {
+            if (!node || typeof node !== 'object') return;
 
-            if (node.type === 'media' && node.attrs) {
-                const id = node.attrs.id as string;
-                const filename = node.attrs.alt as string;
+            const n = node as { type?: string; attrs?: { id?: string; alt?: string }; content?: unknown[] };
+
+            if (n.type === 'media' && n.attrs) {
+                const id = n.attrs.id;
+                const filename = n.attrs.alt;
                 if (id) {
                     mediaInfo.push({ id, filename });
                 }
             }
 
-            if (node.content && Array.isArray(node.content)) {
-                for (const child of node.content) {
+            if (n.content && Array.isArray(n.content)) {
+                for (const child of n.content) {
                     traverse(child);
                 }
             }
@@ -158,7 +160,6 @@ export class IssuePanel {
         return mediaInfo;
     }
 
-    // Build maps for both ID-based and filename-based lookup
     private buildAttachmentMaps(issue: JiraIssue): {
         byId: Record<string, string>;
         byFilename: Record<string, string>;
@@ -184,7 +185,6 @@ export class IssuePanel {
 
         const results = await Promise.allSettled(
             toFetch.map(async ({ id, filename }) => {
-                // Try matching by ID first, then by filename
                 let contentUrl = attachmentMaps.byId[id];
                 if (!contentUrl && filename) {
                     contentUrl = attachmentMaps.byFilename[filename.toLowerCase()];
@@ -288,4 +288,3 @@ export class IssuePanel {
         }
     }
 }
-
