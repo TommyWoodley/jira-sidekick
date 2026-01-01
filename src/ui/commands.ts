@@ -1,10 +1,13 @@
 import * as vscode from 'vscode';
 import { JiraClient, JiraClientError } from '../jira/client';
 import { AuthService } from '../jira/auth';
-import { JiraCredentials, JiraIssue } from '../jira/types';
+import { JiraIssue } from '../jira/types';
 import { IssueCache } from '../core/cache';
+import { ConfigPanel } from './configPanel';
 
 export class CommandsManager {
+    private extensionUri: vscode.Uri | undefined;
+
     constructor(
         private readonly authService: AuthService,
         private readonly client: JiraClient,
@@ -12,6 +15,8 @@ export class CommandsManager {
     ) {}
 
     registerCommands(context: vscode.ExtensionContext): void {
+        this.extensionUri = context.extensionUri;
+
         context.subscriptions.push(
             vscode.commands.registerCommand('jira-sidekick.refresh', () => this.refresh()),
             vscode.commands.registerCommand('jira-sidekick.configure', () => this.configure()),
@@ -58,66 +63,16 @@ export class CommandsManager {
     }
 
     async configure(): Promise<void> {
-        const existingCredentials = await this.authService.getCredentials();
-
-        const baseUrl = await vscode.window.showInputBox({
-            prompt: 'Enter your Jira Cloud URL',
-            placeHolder: 'https://your-domain.atlassian.net',
-            value: existingCredentials?.baseUrl || '',
-            validateInput: (value) => {
-                if (!value) {
-                    return 'URL is required';
-                }
-                try {
-                    new URL(value);
-                    return null;
-                } catch {
-                    return 'Please enter a valid URL';
-                }
-            }
-        });
-        if (!baseUrl) {
+        if (!this.extensionUri) {
             return;
         }
 
-        const email = await vscode.window.showInputBox({
-            prompt: 'Enter your Jira email',
-            placeHolder: 'you@example.com',
-            value: existingCredentials?.email || '',
-            validateInput: (value) => value ? null : 'Email is required'
-        });
-        if (!email) {
-            return;
-        }
-
-        const apiToken = await vscode.window.showInputBox({
-            prompt: 'Enter your Jira API token',
-            placeHolder: 'Your API token from id.atlassian.com',
-            password: true,
-            validateInput: (value) => value ? null : 'API token is required'
-        });
-        if (!apiToken) {
-            return;
-        }
-
-        const credentials: JiraCredentials = { baseUrl, email, apiToken };
-        await this.authService.setCredentials(credentials);
-
-        const isValid = await this.client.testConnection();
-        if (isValid) {
-            vscode.window.showInformationMessage('Jira credentials saved successfully!');
-            await this.refresh();
-        } else {
-            const action = await vscode.window.showErrorMessage(
-                'Failed to connect to Jira. Please check your credentials.',
-                'Try Again',
-                'Keep Anyway'
-            );
-            if (action === 'Try Again') {
-                await this.authService.clearCredentials();
-                await this.configure();
-            }
-        }
+        await ConfigPanel.show(
+            this.extensionUri,
+            this.authService,
+            this.client,
+            () => this.refresh()
+        );
     }
 
     openInBrowser(issue: JiraIssue): void {
@@ -128,4 +83,3 @@ export class CommandsManager {
         vscode.env.openExternal(vscode.Uri.parse(url));
     }
 }
-

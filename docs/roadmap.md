@@ -4,30 +4,6 @@ A roadmap for the jira-sidekick VS Code extension.
 
 ---
 
-## Phase 1 — MVP: Read-only Jira inside VS Code (v0.1)
-
-**Goal:** Immediate value, minimal surface area
-
-### Features
-- Jira authentication (API token)
-- Sidebar Tree View:
-  - "My Issues"
-  - Refresh command
-  - Click issue → open in browser
-- Configurable JQL
-
-### UX
-- Status bar: issue count
-- Error states (auth failed, no issues)
-
-### Tech notes
-- Cache issues in memory
-- No background polling yet
-
-✅ **Output:** usable daily tool
-
----
-
 ## Phase 2 — Issue details & light interaction (v0.2)
 
 **Goal:** Reduce context switching
