@@ -9,14 +9,13 @@ export class IssueTreeItem extends vscode.TreeItem {
         this.description = issue.fields.summary;
         this.tooltip = this.createTooltip();
         this.contextValue = 'issue';
+        this.iconPath = this.getStatusIcon();
 
         this.command = {
-            command: 'jira-sidekick.openIssue',
+            command: 'jira-sidekick.handleIssueClick',
             title: 'Open Issue',
             arguments: [issue]
         };
-
-        this.iconPath = this.getStatusIcon();
     }
 
     private createTooltip(): vscode.MarkdownString {

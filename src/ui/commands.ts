@@ -7,7 +7,10 @@ import { ConfigPanel } from './configPanel';
 import { IssuePanel } from './issuePanel';
 
 export class CommandsManager {
+    private static readonly DOUBLE_CLICK_THRESHOLD = 400;
     private extensionUri: vscode.Uri | undefined;
+    private lastClickTime = 0;
+    private lastClickedKey: string | null = null;
 
     constructor(
         private readonly authService: AuthService,
@@ -22,8 +25,31 @@ export class CommandsManager {
             vscode.commands.registerCommand('jira-sidekick.refresh', () => this.refresh()),
             vscode.commands.registerCommand('jira-sidekick.configure', () => this.configure()),
             vscode.commands.registerCommand('jira-sidekick.openInBrowser', (issue: JiraIssue) => this.openInBrowser(issue)),
-            vscode.commands.registerCommand('jira-sidekick.openIssue', (issue: JiraIssue) => this.openIssue(issue))
+            vscode.commands.registerCommand('jira-sidekick.handleIssueClick', (issue: JiraIssue) => this.handleIssueClick(issue)),
+            vscode.commands.registerCommand('jira-sidekick.openIssue', (issue: JiraIssue) => this.openIssuePreview(issue)),
+            vscode.commands.registerCommand('jira-sidekick.openIssuePinned', (issue: JiraIssue) => this.openIssuePinned(issue))
         );
+    }
+
+    private async handleIssueClick(issue: JiraIssue): Promise<void> {
+        if (!issue) {
+            return;
+        }
+
+        const now = Date.now();
+        const isDoubleClick =
+            this.lastClickedKey === issue.key &&
+            (now - this.lastClickTime) < CommandsManager.DOUBLE_CLICK_THRESHOLD;
+
+        if (isDoubleClick) {
+            this.lastClickedKey = null;
+            this.lastClickTime = 0;
+            await this.openIssuePinned(issue);
+        } else {
+            this.lastClickedKey = issue.key;
+            this.lastClickTime = now;
+            await this.openIssuePreview(issue);
+        }
     }
 
     async refresh(): Promise<void> {
@@ -98,14 +124,28 @@ export class CommandsManager {
         vscode.env.openExternal(vscode.Uri.parse(url));
     }
 
-    async openIssue(issue: JiraIssue): Promise<void> {
+    async openIssuePreview(issue: JiraIssue): Promise<void> {
         if (!issue || !this.extensionUri) {
             return;
         }
-        await IssuePanel.show(
+        await IssuePanel.showPreview(
             this.extensionUri,
             this.client,
             issue.key,
+            issue.fields.summary,
+            (i) => this.openInBrowser(i)
+        );
+    }
+
+    async openIssuePinned(issue: JiraIssue): Promise<void> {
+        if (!issue || !this.extensionUri) {
+            return;
+        }
+        await IssuePanel.showPinned(
+            this.extensionUri,
+            this.client,
+            issue.key,
+            issue.fields.summary,
             (i) => this.openInBrowser(i)
         );
     }

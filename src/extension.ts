@@ -5,6 +5,7 @@ import { IssueCache } from './core/cache';
 import { IssuesTreeDataProvider } from './ui/issuesTreeView';
 import { StatusBarManager } from './ui/statusBar';
 import { CommandsManager } from './ui/commands';
+import { IssuePanel } from './ui/issuePanel';
 
 export function activate(context: vscode.ExtensionContext) {
 	const authService = new AuthService(context.secrets);
@@ -32,4 +33,6 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 }
 
-export function deactivate() {}
+export function deactivate() {
+	IssuePanel.disposeAll();
+}
