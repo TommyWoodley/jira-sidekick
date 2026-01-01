@@ -12,12 +12,67 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+        "activitybar": [
+            {
+                "id": "jira-sidekick",
+                "title": "Jira Sidekick",
+                "icon": "$(issues)"
+            }
+        ]
+    },
+    "views": {
+        "jira-sidekick": [
+            {
+                "id": "jira-sidekick.issues",
+                "name": "My Issues"
+            }
+        ]
+    },
     "commands": [
       {
-        "command": "jira-sidekick.helloWorld",
-        "title": "Hello World"
-      }
+        "command": "jira-sidekick.refresh",
+        "title": "Refresh Issues",
+        "category": "Jira Sidekick",
+        "icon": "$(refresh)"
+    },
+    {
+        "command": "jira-sidekick.configure",
+        "title": "Configure Credentials",
+        "category": "Jira Sidekick",
+        "icon": "$(gear)"
+    },
+    {
+        "command": "jira-sidekick.openInBrowser",
+        "title": "Open in Browser",
+        "category": "Jira Sidekick",
+        "icon": "$(link-external)"
+    }
+],
+"menus": {
+    "view/title": [
+        {
+            "command": "jira-sidekick.refresh",
+            "when": "view == jira-sidekick.issues",
+            "group": "navigation"
+        },
+        {
+            "command": "jira-sidekick.configure",
+            "when": "view == jira-sidekick.issues",
+            "group": "navigation"
+        }
     ]
+    },
+    "configuration": {
+        "title": "Jira Sidekick",
+        "properties": {
+            "jira-sidekick.jql": {
+                "type": "string",
+                "default": "assignee = currentUser() ORDER BY updated DESC",
+                "description": "JQL query to fetch issues"
+            }
+        }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

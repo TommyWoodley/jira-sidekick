@@ -1,5 +1,3 @@
-// Jira domain models and API client
-// This module handles all Jira-related functionality
-
-export {};
-
+export * from './types';
+export * from './auth';
+export * from './client';
