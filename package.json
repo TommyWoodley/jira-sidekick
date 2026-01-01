@@ -17,21 +17,21 @@
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
-        "activitybar": [
-            {
-                "id": "jira-sidekick",
-                "title": "Jira Sidekick",
-                "icon": "$(issues)"
-            }
-        ]
+    "activitybar": [
+        {
+            "id": "jira-sidekick",
+            "title": "Jira Sidekick",
+            "icon": "$(issues)"
+        }
+    ]
     },
     "views": {
-        "jira-sidekick": [
-            {
-                "id": "jira-sidekick.issues",
-                "name": "My Issues"
-            }
-        ]
+    "jira-sidekick": [
+        {
+            "id": "jira-sidekick.issues",
+            "name": "My Issues"
+        }
+    ]
     },
     "commands": [
       {
@@ -74,50 +74,58 @@
     ],
     "view/item/context": [
         {
-            "command": "jira-sidekick.openIssue",
-            "when": "view == jira-sidekick.issues && viewItem == issue",
-            "group": "navigation@1"
+        "command": "jira-sidekick.openIssue",
+        "when": "view == jira-sidekick.issues && viewItem == issue",
+        "group": "navigation@1"
         },
         {
-            "command": "jira-sidekick.openInBrowser",
-            "when": "view == jira-sidekick.issues && viewItem == issue",
-            "group": "navigation@2"
+        "command": "jira-sidekick.openInBrowser",
+        "when": "view == jira-sidekick.issues && viewItem == issue",
+        "group": "navigation@2"
         }
     ]
     },
     "configuration": {
-        "title": "Jira Sidekick",
-        "properties": {
-            "jira-sidekick.jql": {
-                "type": "string",
-                "default": "assignee = currentUser() ORDER BY updated DESC",
-                "description": "JQL query to fetch issues"
-            },
-            "jira-sidekick.maxTabTitleLength": {
-                "type": "number",
-                "default": 30,
-                "scope": "window",
-                "description": "Maximum number of characters to display for issue summaries in editor tab titles. Set to 0 to disable truncation."
-            }
+    "title": "Jira Sidekick",
+    "properties": {
+        "jira-sidekick.jql": {
+            "type": "string",
+            "default": "assignee = currentUser() ORDER BY updated DESC",
+            "description": "JQL query to fetch issues"
+        },
+        "jira-sidekick.maxTabTitleLength": {
+            "type": "number",
+            "default": 30,
+            "scope": "window",
+            "description": "Maximum number of characters to display for issue summaries in editor tab titles. Set to 0 to disable truncation."
         }
+    }
     }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && npm run build:webview",
+    "build:webview": "cd src/webview-ui && npx vite build",
     "watch": "tsc -watch -p ./",
+    "watch:webview": "cd src/webview-ui && npx vite build --watch",
     "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
+    "lint": "eslint src --ignore-pattern src/webview-ui",
     "test": "vscode-test"
   },
-  "devDependencies": {
-    "@types/vscode": "^1.103.0",
+"devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "typescript-eslint": "^8.48.1",
-    "eslint": "^9.39.1",
-    "typescript": "^5.9.3",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/vscode": "^1.103.0",
+    "@vitejs/plugin-react": "^4.3.4",
     "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.39.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.1",
+    "vite": "^6.0.0"
   }
 }
