@@ -33,6 +33,15 @@ export interface JiraIssueType {
     iconUrl?: string;
 }
 
+export interface JiraAttachment {
+    id: string;
+    filename: string;
+    mimeType: string;
+    size: number;
+    content: string;
+    created: string;
+}
+
 export interface JiraIssue {
     id: string;
     key: string;
@@ -48,6 +57,7 @@ export interface JiraIssue {
         updated: string;
         description?: unknown;
         labels?: string[];
+        attachment?: JiraAttachment[];
     };
 }
 

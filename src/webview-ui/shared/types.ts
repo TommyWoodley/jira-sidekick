@@ -10,6 +10,15 @@ export interface JiraFilter {
   favourite: boolean;
 }
 
+export interface JiraAttachment {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  content: string;
+  created: string;
+}
+
 export interface JiraIssue {
   key: string;
   fields: {
@@ -31,6 +40,7 @@ export interface JiraIssue {
       name: string;
     } | null;
     labels: string[];
+    attachment?: JiraAttachment[];
   };
 }
 

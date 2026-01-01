@@ -166,7 +166,7 @@ export class JiraClient {
 
         const { baseUrl, email, apiToken } = credentials;
         const url = new URL(`/rest/api/3/issue/${issueKey}`, baseUrl);
-        url.searchParams.set('fields', 'summary,status,assignee,reporter,priority,issuetype,created,updated,labels,description');
+        url.searchParams.set('fields', 'summary,status,assignee,reporter,priority,issuetype,created,updated,labels,description,attachment');
         const authHeader = Buffer.from(`${email}:${apiToken}`).toString('base64');
 
         const response = await fetch(url.toString(), {
