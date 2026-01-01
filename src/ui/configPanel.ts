@@ -44,7 +44,7 @@ export class ConfigPanel {
                 const result = await this.client.testConnection();
                 return {
                     success: result.success,
-                    message: result.success ? 'Connection successful!' : result.error || 'Connection failed.',
+                    message: result.success ? 'Connection successful!' : result.error.message,
                 };
             },
 
@@ -55,14 +55,17 @@ export class ConfigPanel {
                     success: result.success,
                     message: result.success
                         ? 'Credentials saved! Now select a filter below.'
-                        : result.error || 'Connection failed. Please check your credentials.',
+                        : result.error.message,
                 };
             },
 
             loadFilters: async () => {
-                const filters = await this.client.getFilters();
+                const result = await this.client.getFilters();
+                if (!result.success) {
+                    throw new Error(result.error.message);
+                }
                 const selectedFilter = await this.authService.getSelectedFilter();
-                return { filters, selectedFilter };
+                return { filters: result.data, selectedFilter };
             },
 
             saveFilter: async (filterId: string | null) => {
