@@ -32,6 +32,11 @@ export class IssuePanel {
                             this.onOpenInBrowser(this.currentIssue);
                         }
                         break;
+                    case 'openAttachment':
+                        if (message.url) {
+                            vscode.env.openExternal(vscode.Uri.parse(message.url));
+                        }
+                        break;
                 }
             },
             null,

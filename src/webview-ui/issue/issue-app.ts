@@ -6,7 +6,7 @@ import '@vscode-elements/elements/dist/vscode-divider/index.js';
 import '@vscode-elements/elements/dist/vscode-progress-ring/index.js';
 import { postMessage } from '../shared/vscode-api';
 import { sharedStyles } from '../shared/styles';
-import type { JiraIssue } from '../shared/types';
+import type { JiraIssue, JiraAttachment } from '../shared/types';
 
 @customElement('issue-app')
 export class IssueApp extends LitElement {
@@ -210,6 +210,55 @@ export class IssueApp extends LitElement {
       .description th {
         background: var(--vscode-sideBar-background);
       }
+
+      .attachments-section {
+        margin-top: 24px;
+      }
+
+      .attachments-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .attachment-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        background: var(--vscode-sideBar-background);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+
+      .attachment-item:hover {
+        background: var(--vscode-list-hoverBackground);
+      }
+
+      .attachment-icon {
+        font-size: 1.2em;
+        width: 24px;
+        text-align: center;
+      }
+
+      .attachment-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--vscode-textLink-foreground);
+      }
+
+      .attachment-meta {
+        font-size: 0.85em;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .no-attachments {
+        color: var(--vscode-descriptionForeground);
+        font-style: italic;
+      }
     `,
   ];
 
@@ -262,6 +311,27 @@ export class IssueApp extends LitElement {
       case 'indeterminate': return 'status-inprogress';
       default: return 'status-todo';
     }
+  }
+
+  private formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  private getFileTypeIcon(mimeType: string): string {
+    if (mimeType.startsWith('image/')) return '🖼️';
+    if (mimeType.startsWith('video/')) return '🎬';
+    if (mimeType.startsWith('audio/')) return '🎵';
+    if (mimeType.includes('pdf')) return '📄';
+    if (mimeType.includes('zip') || mimeType.includes('archive')) return '📦';
+    if (mimeType.includes('text') || mimeType.includes('document')) return '📝';
+    if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return '📊';
+    return '📎';
+  }
+
+  private handleOpenAttachment(attachment: JiraAttachment) {
+    postMessage({ command: 'openAttachment', url: attachment.content });
   }
 
   render() {
@@ -351,6 +421,33 @@ export class IssueApp extends LitElement {
       <div class="content">
         <div class="section-title">Description</div>
         <div class="description" .innerHTML=${this.issue.fields.description || 'No description'}></div>
+
+        ${this.renderAttachments()}
+      </div>
+    `;
+  }
+
+  private renderAttachments() {
+    const attachments = this.issue?.fields.attachment || [];
+
+    return html`
+      <div class="attachments-section">
+        <div class="section-title">Attachments (${attachments.length})</div>
+        ${attachments.length > 0 ? html`
+          <div class="attachments-list">
+            ${attachments.map((attachment) => html`
+              <div 
+                class="attachment-item" 
+                @click=${() => this.handleOpenAttachment(attachment)}
+                title="Click to open in browser"
+              >
+                <span class="attachment-icon">${this.getFileTypeIcon(attachment.mimeType)}</span>
+                <span class="attachment-name">${attachment.filename}</span>
+                <span class="attachment-meta">${this.formatFileSize(attachment.size)}</span>
+              </div>
+            `)}
+          </div>
+        ` : html`<span class="no-attachments">No attachments</span>`}
       </div>
     `;
   }
