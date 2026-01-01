@@ -195,5 +195,29 @@ export class JiraClient {
 
         return await response.json() as JiraIssue;
     }
+
+    async downloadAttachment(contentUrl: string): Promise<Buffer> {
+        const credentials = await this.authService.getCredentials();
+        if (!credentials) {
+            throw new JiraClientError('No credentials configured');
+        }
+
+        const { email, apiToken } = credentials;
+        const authHeader = Buffer.from(`${email}:${apiToken}`).toString('base64');
+
+        const response = await fetch(contentUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Basic ${authHeader}`,
+            }
+        });
+
+        if (!response.ok) {
+            throw new JiraClientError(`Failed to download attachment: ${response.status}`, response.status);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        return Buffer.from(arrayBuffer);
+    }
 }
 

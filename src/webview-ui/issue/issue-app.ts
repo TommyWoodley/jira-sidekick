@@ -334,6 +334,18 @@ export class IssueApp extends LitElement {
     postMessage({ command: 'openAttachment', url: attachment.content });
   }
 
+  private handleSaveAttachment(e: MouseEvent, attachment: JiraAttachment) {
+    e.preventDefault();
+    postMessage({
+      command: 'saveAttachment',
+      attachment: {
+        id: attachment.id,
+        filename: attachment.filename,
+        content: attachment.content
+      }
+    });
+  }
+
   render() {
     if (this.isLoading) {
       return html`
@@ -439,7 +451,8 @@ export class IssueApp extends LitElement {
               <div 
                 class="attachment-item" 
                 @click=${() => this.handleOpenAttachment(attachment)}
-                title="Click to open in browser"
+                @contextmenu=${(e: MouseEvent) => this.handleSaveAttachment(e, attachment)}
+                title="Click to open • Right-click to save to workspace"
               >
                 <span class="attachment-icon">${this.getFileTypeIcon(attachment.mimeType)}</span>
                 <span class="attachment-name">${attachment.filename}</span>
