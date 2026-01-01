@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { JiraIssue } from '../jira/types';
 import { JiraClient } from '../jira/client';
 import { adfToMarkdown } from '../jira/adfToMarkdown';
@@ -35,6 +37,11 @@ export class IssuePanel {
                     case 'openAttachment':
                         if (message.url) {
                             vscode.env.openExternal(vscode.Uri.parse(message.url));
+                        }
+                        break;
+                    case 'saveAttachment':
+                        if (message.attachment) {
+                            await this.handleSaveAttachment(message.attachment);
                         }
                         break;
                 }
@@ -234,6 +241,53 @@ export class IssuePanel {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+    private async handleSaveAttachment(attachment: { id: string; filename: string; content: string }): Promise<void> {
+        const folderUri = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: 'Save here',
+            title: `Save ${attachment.filename} to...`
+        });
+
+        if (!folderUri || folderUri.length === 0) {
+            return;
+        }
+
+        const targetFolder = folderUri[0].fsPath;
+        const targetPath = path.join(targetFolder, attachment.filename);
+
+        try {
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: `Downloading ${attachment.filename}...`,
+                    cancellable: false
+                },
+                async () => {
+                    const buffer = await this.client.downloadAttachment(attachment.content);
+                    await fs.writeFile(targetPath, buffer);
+                }
+            );
+
+            const openFile = await vscode.window.showInformationMessage(
+                `Saved ${attachment.filename}`,
+                'Open File',
+                'Open Folder'
+            );
+
+            if (openFile === 'Open File') {
+                const doc = await vscode.workspace.openTextDocument(targetPath);
+                await vscode.window.showTextDocument(doc);
+            } else if (openFile === 'Open Folder') {
+                await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(targetPath));
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`Failed to save attachment: ${message}`);
+        }
     }
 
     public dispose(): void {
