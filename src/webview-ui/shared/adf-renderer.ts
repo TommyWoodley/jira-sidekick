@@ -179,6 +179,14 @@ export class AdfRenderer extends LitElement {
       margin: 4px 0;
     }
 
+    .inline-image {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+      margin: 8px 0;
+      display: block;
+    }
+
     .inline-card {
       display: inline-flex;
       align-items: center;
@@ -195,6 +203,7 @@ export class AdfRenderer extends LitElement {
   `;
 
   @property({ type: Object }) adf: AdfNode | null = null;
+  @property({ type: Object }) imageMap: Record<string, string> = {};
 
   render() {
     if (!this.adf) {
@@ -261,9 +270,17 @@ export class AdfRenderer extends LitElement {
       case 'tableCell':
         return html`<td>${node.content?.map(child => this.renderNode(child))}</td>`;
 
-      case 'mediaSingle':
-      case 'media':
+      case 'mediaSingle': {
+        // mediaSingle contains a media child node
+        const mediaChild = node.content?.find(n => n.type === 'media');
+        if (mediaChild) {
+          return this.renderMediaNode(mediaChild);
+        }
         return html`<div class="media-placeholder">📎 Media attachment</div>`;
+      }
+
+      case 'media':
+        return this.renderMediaNode(node);
 
       case 'panel': {
         const panelType = (node.attrs?.panelType as string) || 'info';
@@ -310,6 +327,14 @@ export class AdfRenderer extends LitElement {
         }
         return nothing;
     }
+  }
+
+  private renderMediaNode(node: AdfNode): TemplateResult {
+    const id = node.attrs?.id as string;
+    if (id && this.imageMap[id]) {
+      return html`<img src="${this.imageMap[id]}" class="inline-image" alt="Image" />`;
+    }
+    return html`<div class="media-placeholder">📎 Media attachment</div>`;
   }
 
   private renderChildren(node: AdfNode): TemplateResult | string {

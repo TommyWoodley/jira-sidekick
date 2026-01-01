@@ -218,6 +218,7 @@ export class IssueApp extends LitElement {
   @state() private isLoading = true;
   @state() private error: { issueKey: string; message: string } | null = null;
   @state() private loadingIssueKey = '';
+  @state() private imageMap: Record<string, string> = {};
 
   connectedCallback() {
     super.connectedCallback();
@@ -240,6 +241,7 @@ export class IssueApp extends LitElement {
       case 'loadIssue':
         this.isLoading = false;
         this.issue = message.issue;
+        this.imageMap = message.imageMap || {};
         this.error = null;
         break;
       case 'error':
@@ -386,8 +388,8 @@ export class IssueApp extends LitElement {
         <div class="section-title">Description</div>
         <div class="description-container">
           ${this.issue.fields.description
-        ? html`<adf-renderer .adf=${this.issue.fields.description}></adf-renderer>`
-        : html`<span class="no-description">No description</span>`}
+            ? html`<adf-renderer .adf=${this.issue.fields.description} .imageMap=${this.imageMap}></adf-renderer>`
+            : html`<span class="no-description">No description</span>`}
         </div>
 
         ${this.renderAttachments()}
