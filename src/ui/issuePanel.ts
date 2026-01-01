@@ -98,14 +98,14 @@ export class IssuePanel {
         if (IssuePanel.previewPanel) {
             IssuePanel.previewPanel.panel.reveal();
             IssuePanel.previewPanel.currentIssueKey = issueKey;
-            IssuePanel.previewPanel.panel.title = `~ Loading ${issueKey}...`;
+            IssuePanel.previewPanel.panel.title = `~ ${issueKey}`;
             IssuePanel.previewPanel.panel.webview.html = IssuePanel.previewPanel.getWebviewContent();
             return;
         }
 
         const panel = vscode.window.createWebviewPanel(
             'jiraSidekickIssue',
-            `~ Loading ${issueKey}...`,
+            `~ ${issueKey}`,
             vscode.ViewColumn.One,
             {
                 enableScripts: true,
@@ -136,7 +136,7 @@ export class IssuePanel {
 
         const panel = vscode.window.createWebviewPanel(
             'jiraSidekickIssue',
-            `Loading ${issueKey}...`,
+            issueKey,
             vscode.ViewColumn.One,
             {
                 enableScripts: true,
