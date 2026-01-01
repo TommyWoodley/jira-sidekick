@@ -1,0 +1,365 @@
+import { LitElement, html, css } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
+import '@vscode-elements/elements/dist/vscode-button/index.js';
+import '@vscode-elements/elements/dist/vscode-badge/index.js';
+import '@vscode-elements/elements/dist/vscode-divider/index.js';
+import '@vscode-elements/elements/dist/vscode-progress-ring/index.js';
+import { postMessage } from '../shared/vscode-api';
+import { sharedStyles } from '../shared/styles';
+import type { JiraIssue } from '../shared/types';
+
+@customElement('issue-app')
+export class IssueApp extends LitElement {
+  static styles = [
+    sharedStyles,
+    css`
+      :host {
+        display: block;
+      }
+
+      .loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 80vh;
+        gap: 20px;
+      }
+
+      .error {
+        padding: 40px;
+      }
+
+      .error-box {
+        background: var(--vscode-inputValidation-errorBackground);
+        border: 1px solid var(--vscode-inputValidation-errorBorder);
+        padding: 20px;
+        border-radius: 4px;
+      }
+
+      .error-box h1 {
+        color: var(--vscode-errorForeground);
+        margin-top: 0;
+      }
+
+      .header {
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--vscode-panel-border);
+        background: var(--vscode-sideBar-background);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+      }
+
+      .header-left {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .issue-key {
+        font-size: 0.85em;
+        color: var(--vscode-descriptionForeground);
+        margin-bottom: 4px;
+      }
+
+      .issue-key a {
+        color: var(--vscode-textLink-foreground);
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      .issue-key a:hover {
+        text-decoration: underline;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 1.4em;
+        font-weight: 600;
+        word-wrap: break-word;
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .meta {
+        padding: 16px 24px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        border-bottom: 1px solid var(--vscode-panel-border);
+      }
+
+      .meta-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .meta-label {
+        font-size: 0.75em;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .meta-value {
+        font-size: 0.95em;
+      }
+
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        color: white;
+        border-radius: 3px;
+        font-size: 0.85em;
+        font-weight: 500;
+        width: fit-content;
+      }
+
+      .status-done { background: #36B37E; }
+      .status-inprogress { background: #0065FF; }
+      .status-todo { background: #6B778C; }
+
+      .labels {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .no-labels {
+        color: var(--vscode-descriptionForeground);
+        font-style: italic;
+      }
+
+      .content {
+        padding: 24px;
+      }
+
+      .section-title {
+        font-size: 0.85em;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--vscode-descriptionForeground);
+        margin-bottom: 12px;
+      }
+
+      .description {
+        background: var(--vscode-textBlockQuote-background);
+        padding: 16px;
+        border-radius: 4px;
+        border-left: 3px solid var(--vscode-textBlockQuote-border);
+        line-height: 1.6;
+      }
+
+      .description pre {
+        background: var(--vscode-textCodeBlock-background);
+        padding: 12px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+
+      .description code {
+        background: var(--vscode-textCodeBlock-background);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: var(--vscode-editor-font-family);
+      }
+
+      .description pre code {
+        background: none;
+        padding: 0;
+      }
+
+      .description a {
+        color: var(--vscode-textLink-foreground);
+      }
+
+      .description blockquote {
+        margin: 12px 0;
+        padding-left: 16px;
+        border-left: 3px solid var(--vscode-textBlockQuote-border);
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .description ul, .description ol {
+        margin: 12px 0;
+        padding-left: 24px;
+      }
+
+      .description h1, .description h2, .description h3 {
+        margin: 16px 0 8px;
+      }
+
+      .description table {
+        border-collapse: collapse;
+        margin: 12px 0;
+      }
+
+      .description th, .description td {
+        border: 1px solid var(--vscode-panel-border);
+        padding: 8px 12px;
+      }
+
+      .description th {
+        background: var(--vscode-sideBar-background);
+      }
+    `,
+  ];
+
+  @state() private issue: JiraIssue | null = null;
+  @state() private isLoading = true;
+  @state() private error: { issueKey: string; message: string } | null = null;
+  @state() private loadingIssueKey = '';
+
+  connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener('message', this.handleMessage);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener('message', this.handleMessage);
+  }
+
+  private handleMessage = (event: MessageEvent) => {
+    const message = event.data;
+    switch (message.command) {
+      case 'loading':
+        this.isLoading = true;
+        this.loadingIssueKey = message.issueKey;
+        this.error = null;
+        break;
+      case 'loadIssue':
+        this.isLoading = false;
+        this.issue = message.issue;
+        this.error = null;
+        break;
+      case 'error':
+        this.isLoading = false;
+        this.error = { issueKey: message.issueKey, message: message.message };
+        break;
+    }
+  };
+
+  private handleRefresh() {
+    postMessage({ command: 'refresh' });
+  }
+
+  private handleOpenInBrowser() {
+    postMessage({ command: 'openInBrowser' });
+  }
+
+  private getStatusClass(categoryKey: string): string {
+    switch (categoryKey) {
+      case 'done': return 'status-done';
+      case 'indeterminate': return 'status-inprogress';
+      default: return 'status-todo';
+    }
+  }
+
+  render() {
+    if (this.isLoading) {
+      return html`
+        <div class="loading">
+          <vscode-progress-ring></vscode-progress-ring>
+          <div>Loading ${this.loadingIssueKey}...</div>
+        </div>
+      `;
+    }
+
+    if (this.error) {
+      return html`
+        <div class="error">
+          <div class="error-box">
+            <h1>Failed to load ${this.error.issueKey}</h1>
+            <p>${this.error.message}</p>
+            <vscode-button @click=${this.handleRefresh}>Retry</vscode-button>
+          </div>
+        </div>
+      `;
+    }
+
+    if (!this.issue) {
+      return html`<div class="loading">No issue loaded</div>`;
+    }
+
+    const labels = this.issue.fields.labels || [];
+    const statusClass = this.getStatusClass(this.issue.fields.status.statusCategory.key);
+
+    return html`
+      <div class="header">
+        <div class="header-left">
+          <div class="issue-key">
+            <a @click=${this.handleOpenInBrowser}>${this.issue.key}</a>
+            · ${this.issue.fields.issuetype.name}
+          </div>
+          <h1>${this.issue.fields.summary}</h1>
+        </div>
+        <div class="header-actions">
+          <vscode-button secondary @click=${this.handleRefresh}>↻ Refresh</vscode-button>
+          <vscode-button secondary @click=${this.handleOpenInBrowser}>↗ Browser</vscode-button>
+        </div>
+      </div>
+
+      <div class="meta">
+        <div class="meta-item">
+          <div class="meta-label">Status</div>
+          <div class="meta-value">
+            <span class="status-badge ${statusClass}">
+              ${this.issue.fields.status.name}
+            </span>
+          </div>
+        </div>
+
+        <div class="meta-item">
+          <div class="meta-label">Assignee</div>
+          <div class="meta-value">
+            ${this.issue.fields.assignee
+              ? this.issue.fields.assignee.displayName
+              : html`<span class="no-labels">Unassigned</span>`}
+          </div>
+        </div>
+
+        ${this.issue.fields.priority ? html`
+          <div class="meta-item">
+            <div class="meta-label">Priority</div>
+            <div class="meta-value">${this.issue.fields.priority.name}</div>
+          </div>
+        ` : ''}
+
+        <div class="meta-item">
+          <div class="meta-label">Labels</div>
+          <div class="meta-value">
+            ${labels.length > 0 ? html`
+              <div class="labels">
+                ${labels.map((label) => html`
+                  <vscode-badge>${label}</vscode-badge>
+                `)}
+              </div>
+            ` : html`<span class="no-labels">No labels</span>`}
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="section-title">Description</div>
+        <div class="description" .innerHTML=${this.issue.fields.description || 'No description'}></div>
+      </div>
+    `;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'issue-app': IssueApp;
+  }
+}
+
+

@@ -99,10 +99,11 @@ export class CommandsManager {
     }
 
     async openIssue(issue: JiraIssue): Promise<void> {
-        if (!issue) {
+        if (!issue || !this.extensionUri) {
             return;
         }
         await IssuePanel.show(
+            this.extensionUri,
             this.client,
             issue.key,
             (i) => this.openInBrowser(i)
