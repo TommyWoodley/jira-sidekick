@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a Question
+    url: https://github.com/thwoodle/jira-sidekick/discussions
+    about: Use GitHub Discussions for questions and help
+
