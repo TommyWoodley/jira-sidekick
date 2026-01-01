@@ -7,21 +7,26 @@ import type { JiraIssue } from '../shared/models';
 import { exposeApi } from '../shared/rpc';
 
 export class IssuePanel {
-    public static currentPanel: IssuePanel | undefined;
+    private static previewPanel: IssuePanel | undefined;
+    private static pinnedPanels: Map<string, IssuePanel> = new Map();
+    
     private readonly panel: vscode.WebviewPanel;
     private disposables: vscode.Disposable[] = [];
     private currentIssue: JiraIssue | undefined;
     private currentIssueKey: string;
+    private isPinned: boolean = false;
 
     private constructor(
         panel: vscode.WebviewPanel,
         private readonly extensionUri: vscode.Uri,
         private readonly client: JiraClient,
         private readonly onOpenInBrowser: (issue: JiraIssue) => void,
-        issueKey: string
+        issueKey: string,
+        pinned: boolean
     ) {
         this.panel = panel;
         this.currentIssueKey = issueKey;
+        this.isPinned = pinned;
         this.panel.webview.html = this.getWebviewContent();
         this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
 
@@ -38,7 +43,8 @@ export class IssuePanel {
 
                 const maxLength = vscode.workspace.getConfiguration('jira-sidekick').get<number>('maxTabTitleLength', 30);
                 const truncatedSummary = this.truncateText(issue.fields.summary, maxLength);
-                this.panel.title = `${issue.key}: ${truncatedSummary}`;
+                const prefix = this.isPinned ? '' : '~ ';
+                this.panel.title = `${prefix}${issue.key}: ${truncatedSummary}`;
 
                 const attachmentMaps = this.buildAttachmentMaps(issue);
                 const mediaInfo = this.extractMediaInfo(issue.fields.description);
@@ -77,16 +83,54 @@ export class IssuePanel {
         };
     }
 
-    public static async show(
+    public static async showPreview(
         extensionUri: vscode.Uri,
         client: JiraClient,
         issueKey: string,
         onOpenInBrowser: (issue: JiraIssue) => void
     ): Promise<void> {
-        if (IssuePanel.currentPanel) {
-            IssuePanel.currentPanel.panel.reveal();
-            IssuePanel.currentPanel.currentIssueKey = issueKey;
-            IssuePanel.currentPanel.panel.webview.html = IssuePanel.currentPanel.getWebviewContent();
+        const existingPinned = IssuePanel.pinnedPanels.get(issueKey);
+        if (existingPinned) {
+            existingPinned.panel.reveal();
+            return;
+        }
+
+        if (IssuePanel.previewPanel) {
+            IssuePanel.previewPanel.panel.reveal();
+            IssuePanel.previewPanel.currentIssueKey = issueKey;
+            IssuePanel.previewPanel.panel.title = `~ Loading ${issueKey}...`;
+            IssuePanel.previewPanel.panel.webview.html = IssuePanel.previewPanel.getWebviewContent();
+            return;
+        }
+
+        const panel = vscode.window.createWebviewPanel(
+            'jiraSidekickIssue',
+            `~ Loading ${issueKey}...`,
+            vscode.ViewColumn.One,
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true,
+                localResourceRoots: [vscode.Uri.joinPath(extensionUri, 'out', 'webview-ui')]
+            }
+        );
+
+        IssuePanel.previewPanel = new IssuePanel(panel, extensionUri, client, onOpenInBrowser, issueKey, false);
+    }
+
+    public static async showPinned(
+        extensionUri: vscode.Uri,
+        client: JiraClient,
+        issueKey: string,
+        onOpenInBrowser: (issue: JiraIssue) => void
+    ): Promise<void> {
+        const existingPinned = IssuePanel.pinnedPanels.get(issueKey);
+        if (existingPinned) {
+            existingPinned.panel.reveal();
+            return;
+        }
+
+        if (IssuePanel.previewPanel && IssuePanel.previewPanel.currentIssueKey === issueKey) {
+            IssuePanel.previewPanel.pin();
             return;
         }
 
@@ -101,7 +145,22 @@ export class IssuePanel {
             }
         );
 
-        IssuePanel.currentPanel = new IssuePanel(panel, extensionUri, client, onOpenInBrowser, issueKey);
+        const issuePanel = new IssuePanel(panel, extensionUri, client, onOpenInBrowser, issueKey, true);
+        IssuePanel.pinnedPanels.set(issueKey, issuePanel);
+    }
+
+    private pin(): void {
+        if (this.isPinned) {
+            return;
+        }
+        this.isPinned = true;
+        IssuePanel.previewPanel = undefined;
+        IssuePanel.pinnedPanels.set(this.currentIssueKey, this);
+        
+        const currentTitle = this.panel.title;
+        if (currentTitle.startsWith('~ ')) {
+            this.panel.title = currentTitle.substring(2);
+        }
     }
 
     private getWebviewContent(): string {
@@ -278,13 +337,27 @@ export class IssuePanel {
     }
 
     public dispose(): void {
-        IssuePanel.currentPanel = undefined;
+        if (this.isPinned) {
+            IssuePanel.pinnedPanels.delete(this.currentIssueKey);
+        } else {
+            IssuePanel.previewPanel = undefined;
+        }
+        
         this.panel.dispose();
         while (this.disposables.length) {
             const x = this.disposables.pop();
             if (x) {
                 x.dispose();
             }
+        }
+    }
+
+    public static disposeAll(): void {
+        if (IssuePanel.previewPanel) {
+            IssuePanel.previewPanel.dispose();
+        }
+        for (const panel of IssuePanel.pinnedPanels.values()) {
+            panel.dispose();
         }
     }
 }
