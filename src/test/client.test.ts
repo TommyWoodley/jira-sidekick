@@ -275,6 +275,33 @@ suite('JiraClient Test Suite', () => {
         });
     });
 
+    suite('testConnectionWith()', () => {
+        test('returns success on 200 with explicit credentials', async () => {
+            mockFetchResponse = { ok: true, status: 200 };
+
+            const result = await client.testConnectionWith(testCredentials);
+            assert.strictEqual(result.success, true);
+        });
+
+        test('returns error on 401 with explicit credentials', async () => {
+            mockFetchResponse = { ok: false, status: 401 };
+
+            const result = await client.testConnectionWith(testCredentials);
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('Invalid credentials'));
+            }
+        });
+
+        test('does not require credentials from AuthService', async () => {
+            mockAuth.setMockCredentials(null);
+            mockFetchResponse = { ok: true, status: 200 };
+
+            const result = await client.testConnectionWith(testCredentials);
+            assert.strictEqual(result.success, true);
+        });
+    });
+
     suite('getFilters()', () => {
         test('returns error when no credentials', async () => {
             mockAuth.setMockCredentials(null);

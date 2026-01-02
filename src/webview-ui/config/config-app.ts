@@ -121,6 +121,7 @@ export class ConfigApp extends LitElement {
   @state() private selectedFilterId: string | null = null;
   @state() private filterSearch = '';
   @state() private filtersError: string | null = null;
+  @state() private hasStoredCredentials = false;
 
   async connectedCallback() {
     super.connectedCallback();
@@ -136,6 +137,7 @@ export class ConfigApp extends LitElement {
           email: credentials.email || '',
           apiToken: '',
         };
+        this.hasStoredCredentials = !!(credentials.baseUrl && credentials.email);
       }
       if (selectedFilter) {
         this.selectedFilterId = selectedFilter;
@@ -163,7 +165,7 @@ export class ConfigApp extends LitElement {
   }
 
   private async handleTest() {
-    if (!this.validateForm()) {return;}
+    if (!this.validateFormForTest()) {return;}
     this.isLoading = true;
     try {
       const { success, message } = await api.testConnection(this.credentials);
@@ -187,6 +189,7 @@ export class ConfigApp extends LitElement {
       const { success, message } = await api.saveCredentials(this.credentials);
       this.message = { text: message, isSuccess: success };
       if (success) {
+        this.hasStoredCredentials = true;
         this.showFilters = true;
         await this.loadFiltersQuietly();
       }
@@ -199,6 +202,18 @@ export class ConfigApp extends LitElement {
 
   private validateForm(): boolean {
     if (!this.credentials.baseUrl || !this.credentials.email || !this.credentials.apiToken) {
+      this.message = { text: 'Please fill in all fields', isSuccess: false };
+      return false;
+    }
+    return true;
+  }
+
+  private validateFormForTest(): boolean {
+    if (!this.credentials.baseUrl || !this.credentials.email) {
+      this.message = { text: 'Please fill in all fields', isSuccess: false };
+      return false;
+    }
+    if (!this.credentials.apiToken && !this.hasStoredCredentials) {
       this.message = { text: 'Please fill in all fields', isSuccess: false };
       return false;
     }

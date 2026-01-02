@@ -42,8 +42,14 @@ export class ConfigPanel {
             },
 
             testConnection: async (credentials: JiraCredentials) => {
-                await this.authService.setCredentials(credentials);
-                const result = await this.client.testConnection();
+                let effectiveCredentials = credentials;
+                if (!credentials.apiToken) {
+                    const stored = await this.authService.getCredentials();
+                    if (stored?.apiToken) {
+                        effectiveCredentials = { ...credentials, apiToken: stored.apiToken };
+                    }
+                }
+                const result = await this.client.testConnectionWith(effectiveCredentials);
                 return {
                     success: result.success,
                     message: result.success ? 'Connection successful!' : result.error.message,

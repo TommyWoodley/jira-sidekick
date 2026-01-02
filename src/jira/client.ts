@@ -1,5 +1,5 @@
 import { AuthService } from './auth';
-import { JiraSearchResponse, JiraError, JiraFilter, JiraIssue, JiraTransition, JiraComment, JiraCommentsPage } from './types';
+import { JiraSearchResponse, JiraError, JiraFilter, JiraIssue, JiraTransition, JiraComment, JiraCommentsPage, JiraCredentials } from './types';
 import { Result, ok, err } from '../core/result';
 
 export class JiraClientError extends Error {
@@ -106,7 +106,10 @@ export class JiraClient {
         if (!credentials) {
             return err(new JiraClientError('No credentials configured'));
         }
+        return this.testConnectionWith(credentials);
+    }
 
+    async testConnectionWith(credentials: JiraCredentials): Promise<Result<void, JiraClientError>> {
         const { baseUrl, email, apiToken } = credentials;
         const url = new URL('/rest/api/3/myself', baseUrl);
         const authHeader = Buffer.from(`${email}:${apiToken}`).toString('base64');
