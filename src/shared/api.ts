@@ -1,4 +1,4 @@
-import type { JiraCredentials, JiraFilter, JiraIssue, JiraTransition } from './models';
+import type { JiraCredentials, JiraFilter, JiraIssue, JiraTransition, JiraComment } from './models';
 
 export interface ConfigApi {
     getCredentials(): Promise<{
@@ -30,11 +30,13 @@ export interface IssueApi {
     loadIssue(issueKey: string): Promise<{
         issue: JiraIssue;
         imageMap: Record<string, string>;
+        comments: JiraComment[];
     }>;
 
     refresh(): Promise<{
         issue: JiraIssue;
         imageMap: Record<string, string>;
+        comments: JiraComment[];
     }>;
 
     openInBrowser(): void;

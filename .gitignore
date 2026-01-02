@@ -27,3 +27,6 @@ coverage/
 .nyc_output/
 .vscode-test/
 
+# API docs (large files)
+docs/jira_api_docs.swagger.json
+

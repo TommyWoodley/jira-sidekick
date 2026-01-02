@@ -40,11 +40,15 @@ export class IssuePanel {
         return {
             loadIssue: async (issueKey: string) => {
                 this.currentIssueKey = issueKey;
-                const result = await this.client.getIssue(issueKey);
-                if (!result.success) {
-                    throw new Error(result.error.message);
+                const [issueResult, commentsResult] = await Promise.all([
+                    this.client.getIssue(issueKey),
+                    this.client.getComments(issueKey)
+                ]);
+                if (!issueResult.success) {
+                    throw new Error(issueResult.error.message);
                 }
-                const issue = result.data;
+                const issue = issueResult.data;
+                const comments = commentsResult.success ? commentsResult.data : [];
                 this.currentIssue = issue;
 
                 this.panel.title = IssuePanel.formatTitle(issue.key, issue.fields.summary, !this.isPinned);
@@ -52,24 +56,28 @@ export class IssuePanel {
                 this.attachmentMaps = this.buildAttachmentMaps(issue);
                 this.mediaIdToUrl = this.buildMediaIdToUrl(issue);
 
-                return { issue, imageMap: {} as Record<string, string> };
+                return { issue, imageMap: {} as Record<string, string>, comments };
             },
 
             refresh: async () => {
                 if (!this.currentIssueKey) {
                     throw new Error('No issue loaded');
                 }
-                const result = await this.client.getIssue(this.currentIssueKey);
-                if (!result.success) {
-                    throw new Error(result.error.message);
+                const [issueResult, commentsResult] = await Promise.all([
+                    this.client.getIssue(this.currentIssueKey),
+                    this.client.getComments(this.currentIssueKey)
+                ]);
+                if (!issueResult.success) {
+                    throw new Error(issueResult.error.message);
                 }
-                const issue = result.data;
+                const issue = issueResult.data;
+                const comments = commentsResult.success ? commentsResult.data : [];
                 this.currentIssue = issue;
 
                 this.attachmentMaps = this.buildAttachmentMaps(issue);
                 this.mediaIdToUrl = this.buildMediaIdToUrl(issue);
 
-                return { issue, imageMap: {} as Record<string, string> };
+                return { issue, imageMap: {} as Record<string, string>, comments };
             },
 
             openInBrowser: () => {

@@ -8,7 +8,7 @@ import '../shared/adf-renderer';
 import { sharedStyles } from '../shared/styles';
 import { createApiClient } from '../shared/rpc-client';
 import type { IssueApi } from '@shared/api';
-import type { JiraIssue, JiraAttachment, JiraTransition } from '@shared/models';
+import type { JiraIssue, JiraAttachment, JiraTransition, JiraComment } from '@shared/models';
 
 const api = createApiClient<IssueApi>();
 
@@ -296,6 +296,49 @@ export class IssueApp extends LitElement {
         opacity: 0.7;
         pointer-events: none;
       }
+
+      .comments-section {
+        margin-top: 24px;
+      }
+
+      .comments-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .comment-item {
+        background: var(--vscode-sideBar-background);
+        border-radius: 6px;
+        padding: 12px 16px;
+        border-left: 3px solid var(--vscode-textLink-foreground);
+      }
+
+      .comment-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .comment-author {
+        font-weight: 500;
+        color: var(--vscode-foreground);
+      }
+
+      .comment-timestamp {
+        font-size: 0.8em;
+        color: var(--vscode-descriptionForeground);
+      }
+
+      .comment-body {
+        font-size: 0.95em;
+      }
+
+      .no-comments {
+        color: var(--vscode-descriptionForeground);
+        font-style: italic;
+      }
     `,
   ];
 
@@ -310,14 +353,16 @@ export class IssueApp extends LitElement {
   @state() private transitionsLoading = false;
   @state() private transitionsError: string | null = null;
   @state() private isTransitioning = false;
+  @state() private comments: JiraComment[] = [];
 
   private async loadIssue(issueKey: string) {
     this.isLoading = true;
     this.error = null;
     try {
-      const { issue, imageMap } = await api.loadIssue(issueKey);
+      const { issue, imageMap, comments } = await api.loadIssue(issueKey);
       this.issue = issue;
       this.imageMap = imageMap;
+      this.comments = comments;
       this.isLoading = false;
     } catch (err) {
       this.isLoading = false;
@@ -329,9 +374,10 @@ export class IssueApp extends LitElement {
     this.isLoading = true;
     this.error = null;
     try {
-      const { issue, imageMap } = await api.refresh();
+      const { issue, imageMap, comments } = await api.refresh();
       this.issue = issue;
       this.imageMap = imageMap;
+      this.comments = comments;
       this.isLoading = false;
     } catch (err) {
       this.isLoading = false;
@@ -546,6 +592,7 @@ export class IssueApp extends LitElement {
         </div>
 
         ${this.renderAttachments()}
+        ${this.renderComments()}
       </div>
     `;
   }
@@ -615,6 +662,52 @@ export class IssueApp extends LitElement {
             `)}
           </div>
         ` : html`<span class="no-attachments">No attachments</span>`}
+      </div>
+    `;
+  }
+
+  private formatRelativeTime(dateString: string): string {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffSecs < 60) { return 'just now'; }
+    if (diffMins < 60) { return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`; }
+    if (diffHours < 24) { return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`; }
+    if (diffDays < 30) { return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`; }
+    return date.toLocaleDateString();
+  }
+
+  private formatFullDate(dateString: string): string {
+    const date = new Date(dateString);
+    return date.toLocaleString();
+  }
+
+  private renderComments() {
+    return html`
+      <div class="comments-section">
+        <div class="section-title">Comments (${this.comments.length})</div>
+        ${this.comments.length > 0 ? html`
+          <div class="comments-list">
+            ${this.comments.map((comment) => html`
+              <div class="comment-item">
+                <div class="comment-header">
+                  <span class="comment-author">${comment.author.displayName}</span>
+                  <span class="comment-timestamp" title="${this.formatFullDate(comment.created)}">
+                    ${this.formatRelativeTime(comment.created)}
+                  </span>
+                </div>
+                <div class="comment-body">
+                  <adf-renderer .adf=${comment.body} .imageMap=${this.imageMap}></adf-renderer>
+                </div>
+              </div>
+            `)}
+          </div>
+        ` : html`<span class="no-comments">No comments</span>`}
       </div>
     `;
   }
