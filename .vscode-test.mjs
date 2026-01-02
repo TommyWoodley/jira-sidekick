@@ -12,7 +12,8 @@ export default defineConfig({
 		}
 	],
 	coverage: {
-		exclude: ['**/test/**'],
+		exclude: ['**/test/**', '**/webview-ui/**'],
 		includeAll: true,
+		output: 'coverage/extension',
 	},
 });

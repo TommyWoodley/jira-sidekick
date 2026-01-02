@@ -29,12 +29,21 @@ jobs:
       - name: Compile
         run: npm run compile
 
-      - name: Run tests
+      - name: Run extension tests with coverage
         run: xvfb-run -a npm run test:coverage
         if: runner.os == 'Linux'
+
+      - name: Run webview tests with coverage
+        run: npm run test:webview:coverage
+
+      - name: Merge coverage reports
+        run: npm run coverage:merge
+
+      - name: Display combined coverage
+        run: npm run coverage:summary
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          file: coverage/lcov.info
+          file: coverage/lcov-combined.info
