@@ -40,6 +40,9 @@ class MockSecretStorage implements vscode.SecretStorage {
         this.storage.delete(key);
         return Promise.resolve();
     }
+    keys(): Thenable<string[]> {
+        return Promise.resolve(Array.from(this.storage.keys()));
+    }
 }
 
 suite('CommandsManager Test Suite', () => {
