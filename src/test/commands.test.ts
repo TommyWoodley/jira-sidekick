@@ -1,106 +1,33 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { CommandsManager } from '../ui/commands';
-import { JiraClient } from '../jira/client';
-import { IssueCache, PreferencesService } from '../core';
-import { JiraIssue, JiraCredentials } from '../jira/types';
-import { IAuthService } from '../core/interfaces';
-
-const mockIssue: JiraIssue = {
-    id: '1',
-    key: 'TEST-1',
-    self: 'https://test.atlassian.net/rest/api/3/issue/1',
-    fields: {
-        summary: 'Test Issue',
-        status: {
-            id: '1',
-            name: 'To Do',
-            statusCategory: { id: 2, key: 'new', name: 'To Do', colorName: 'blue-gray' },
-        },
-        issuetype: { id: '10001', name: 'Task' },
-        priority: { id: '3', name: 'Medium' },
-        assignee: null,
-        reporter: null,
-        created: '2024-01-01T00:00:00.000Z',
-        updated: '2024-01-01T00:00:00.000Z',
-    },
-};
-
-const mockIssue2: JiraIssue = {
-    id: '2',
-    key: 'TEST-2',
-    self: 'https://test.atlassian.net/rest/api/3/issue/2',
-    fields: {
-        summary: 'Another Test Issue',
-        status: {
-            id: '2',
-            name: 'In Progress',
-            statusCategory: { id: 4, key: 'indeterminate', name: 'In Progress', colorName: 'blue' },
-        },
-        issuetype: { id: '10001', name: 'Task' },
-        priority: { id: '2', name: 'High' },
-        assignee: { accountId: '123', displayName: 'Test User' },
-        reporter: { accountId: '456', displayName: 'Reporter' },
-        created: '2024-01-02T00:00:00.000Z',
-        updated: '2024-01-02T00:00:00.000Z',
-    },
-};
-
-class MockAuthService implements IAuthService {
-    private credentials: JiraCredentials | null = null;
-
-    async setCredentials(credentials: JiraCredentials): Promise<void> {
-        this.credentials = credentials;
-    }
-
-    async getCredentials(): Promise<JiraCredentials | null> {
-        return this.credentials;
-    }
-
-    async clearCredentials(): Promise<void> {
-        this.credentials = null;
-    }
-
-    async hasCredentials(): Promise<boolean> {
-        return this.credentials !== null;
-    }
-}
-
-class MockMemento implements vscode.Memento {
-    private storage = new Map<string, unknown>();
-    keys(): readonly string[] {
-        return Array.from(this.storage.keys());
-    }
-    get<T>(key: string): T | undefined;
-    get<T>(key: string, defaultValue: T): T;
-    get<T>(key: string, defaultValue?: T): T | undefined {
-        const value = this.storage.get(key);
-        return value !== undefined ? (value as T) : defaultValue;
-    }
-    update(key: string, value: unknown): Thenable<void> {
-        if (value === undefined || value === null) {
-            this.storage.delete(key);
-        } else {
-            this.storage.set(key, value);
-        }
-        return Promise.resolve();
-    }
-    setKeysForSync(): void { }
-}
+import { JiraClientError } from '../jira/client';
+import { ok, err } from '../core/result';
+import type { JiraSearchResponse, JiraFilter, JiraTransition } from '../shared/models';
+import {
+    MockAuthService,
+    MockJiraClient,
+    MockIssueCache,
+    MockPreferencesService,
+    createMockExtensionContext,
+    mockIssue,
+    mockIssue2,
+    mockTransitions,
+    mockFilters,
+} from './mocks';
 
 suite('CommandsManager Test Suite', () => {
     let authService: MockAuthService;
-    let preferences: PreferencesService;
-    let client: JiraClient;
-    let cache: IssueCache;
+    let preferences: MockPreferencesService;
+    let client: MockJiraClient;
+    let cache: MockIssueCache;
     let commandsManager: CommandsManager;
 
     setup(() => {
-        const mockMemento = new MockMemento();
         authService = new MockAuthService();
-        preferences = new PreferencesService(mockMemento);
-        client = new JiraClient(authService);
-        cache = new IssueCache();
+        preferences = new MockPreferencesService();
+        client = new MockJiraClient();
+        cache = new MockIssueCache();
         commandsManager = new CommandsManager(authService, preferences, client, cache);
     });
 
@@ -108,70 +35,77 @@ suite('CommandsManager Test Suite', () => {
         cache.dispose();
     });
 
+    suite('registerCommands()', () => {
+        test('registers all commands to context subscriptions', () => {
+            const mockContext = createMockExtensionContext();
+            commandsManager.registerCommands(mockContext as unknown as vscode.ExtensionContext);
+            assert.strictEqual(mockContext.subscriptions.length, 7);
+        });
+    });
+
     suite('openInBrowser()', () => {
         test('does nothing when issue is null', async () => {
-            await commandsManager.openInBrowser(null as unknown as JiraIssue);
+            await commandsManager.openInBrowser(null as unknown as typeof mockIssue);
         });
 
         test('does nothing when issue is undefined', async () => {
-            await commandsManager.openInBrowser(undefined as unknown as JiraIssue);
+            await commandsManager.openInBrowser(undefined as unknown as typeof mockIssue);
         });
 
         test('does nothing when no credentials', async () => {
             await commandsManager.openInBrowser(mockIssue);
         });
+    });
 
-        test('opens browser with valid issue and credentials', async () => {
-            await authService.setCredentials({
+    suite('refresh()', () => {
+        test('uses selected filter when set', async () => {
+            authService.setMockCredentials({
                 baseUrl: 'https://test.atlassian.net',
                 email: 'test@example.com',
                 apiToken: 'test-token',
             });
-            await commandsManager.openInBrowser(mockIssue);
+            await preferences.setSelectedFilter('12345');
+            client.getFilterByIdResult = ok<JiraFilter>(mockFilters[0]);
+            await commandsManager.refresh();
+            assert.strictEqual(cache.getIssueCount(), 1);
         });
 
-        test('constructs correct URL from baseUrl and issue key', async () => {
-            await authService.setCredentials({
-                baseUrl: 'https://custom-jira.example.com',
+        test('uses default JQL when no filter selected', async () => {
+            authService.setMockCredentials({
+                baseUrl: 'https://test.atlassian.net',
                 email: 'test@example.com',
                 apiToken: 'test-token',
             });
-            await commandsManager.openInBrowser(mockIssue);
-        });
-    });
-
-    suite('transitionIssue()', () => {
-        test('shows warning when no issues in cache and no issue provided', async () => {
-            cache.clear();
-            await commandsManager.transitionIssue();
+            await commandsManager.refresh();
+            assert.strictEqual(cache.getIssueCount(), 1);
         });
 
-        test('uses provided issue without showing picker', async () => {
-            await commandsManager.transitionIssue(mockIssue);
+        test('falls back to default JQL when filter fetch fails', async () => {
+            authService.setMockCredentials({
+                baseUrl: 'https://test.atlassian.net',
+                email: 'test@example.com',
+                apiToken: 'test-token',
+            });
+            await preferences.setSelectedFilter('99999');
+            client.getFilterByIdResult = err(new JiraClientError('Filter not found', 404));
+            await commandsManager.refresh();
+            assert.strictEqual(cache.getIssueCount(), 1);
         });
 
-        test('uses provided issue with different status', async () => {
-            await commandsManager.transitionIssue(mockIssue2);
-        });
-    });
-
-    suite('openIssuePreview()', () => {
-        test('does nothing when issue is null', async () => {
-            await commandsManager.openIssuePreview(null as unknown as JiraIssue);
-        });
-
-        test('does nothing when issue is undefined', async () => {
-            await commandsManager.openIssuePreview(undefined as unknown as JiraIssue);
-        });
-    });
-
-    suite('openIssuePinned()', () => {
-        test('does nothing when issue is null', async () => {
-            await commandsManager.openIssuePinned(null as unknown as JiraIssue);
-        });
-
-        test('does nothing when issue is undefined', async () => {
-            await commandsManager.openIssuePinned(undefined as unknown as JiraIssue);
+        test('handles search success and updates cache', async () => {
+            authService.setMockCredentials({
+                baseUrl: 'https://test.atlassian.net',
+                email: 'test@example.com',
+                apiToken: 'test-token',
+            });
+            client.searchIssuesResult = ok<JiraSearchResponse>({
+                issues: [mockIssue, mockIssue2],
+                total: 2,
+                startAt: 0,
+                maxResults: 50,
+            });
+            await commandsManager.refresh();
+            assert.strictEqual(cache.getIssueCount(), 2);
         });
     });
 
@@ -181,25 +115,87 @@ suite('CommandsManager Test Suite', () => {
         });
     });
 
-    suite('refresh()', () => {
-        test('uses selected filter when set', async () => {
-            await authService.setCredentials({
-                baseUrl: 'https://test.atlassian.net',
-                email: 'test@example.com',
-                apiToken: 'test-token',
-            });
-            await preferences.setSelectedFilter('12345');
-            await commandsManager.refresh();
+    suite('openIssuePreview()', () => {
+        test('does nothing when issue is null', async () => {
+            await commandsManager.openIssuePreview(null as unknown as typeof mockIssue);
         });
 
-        test('uses default JQL when no filter selected', async () => {
-            await authService.setCredentials({
+        test('does nothing when issue is undefined', async () => {
+            await commandsManager.openIssuePreview(undefined as unknown as typeof mockIssue);
+        });
+
+        test('does nothing when extensionUri is not set', async () => {
+            await commandsManager.openIssuePreview(mockIssue);
+        });
+    });
+
+    suite('openIssuePinned()', () => {
+        test('does nothing when issue is null', async () => {
+            await commandsManager.openIssuePinned(null as unknown as typeof mockIssue);
+        });
+
+        test('does nothing when issue is undefined', async () => {
+            await commandsManager.openIssuePinned(undefined as unknown as typeof mockIssue);
+        });
+
+        test('does nothing when extensionUri is not set', async () => {
+            await commandsManager.openIssuePinned(mockIssue);
+        });
+    });
+
+    suite('handleIssueClick()', () => {
+        test('does nothing when issue is null', async () => {
+            await (commandsManager as unknown as { handleIssueClick(i: unknown): Promise<void> })
+                .handleIssueClick(null);
+        });
+
+        test('does nothing when issue is undefined', async () => {
+            await (commandsManager as unknown as { handleIssueClick(i: unknown): Promise<void> })
+                .handleIssueClick(undefined);
+        });
+    });
+
+    suite('transitionIssue()', () => {
+        test('shows warning when no issues in cache and no issue provided', async () => {
+            cache.clear();
+            await commandsManager.transitionIssue();
+        });
+
+        test('handles transitions fetch error', async () => {
+            client.getTransitionsResult = err(new JiraClientError('Failed to get transitions', 500));
+            await commandsManager.transitionIssue(mockIssue);
+        });
+
+        test('handles no available transitions', async () => {
+            client.getTransitionsResult = ok<JiraTransition[]>([]);
+            await commandsManager.transitionIssue(mockIssue);
+        });
+
+    });
+
+    suite('getJql()', () => {
+        test('returns filter JQL when filter selected and fetch succeeds', async () => {
+            authService.setMockCredentials({
                 baseUrl: 'https://test.atlassian.net',
                 email: 'test@example.com',
                 apiToken: 'test-token',
             });
+            await preferences.setSelectedFilter('10001');
+            client.getFilterByIdResult = ok<JiraFilter>({
+                id: '10001',
+                name: 'My Filter',
+                jql: 'project = TEST',
+                favourite: true,
+            });
             await commandsManager.refresh();
+            assert.strictEqual(cache.getIssueCount(), 1);
+        });
+    });
+
+    suite('DOUBLE_CLICK_THRESHOLD behavior', () => {
+        test('single click does not trigger pinned view', async () => {
+            await (commandsManager as unknown as { handleIssueClick(i: unknown): Promise<void> })
+                .handleIssueClick(mockIssue);
         });
     });
 });
-
