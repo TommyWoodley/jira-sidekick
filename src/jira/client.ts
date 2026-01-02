@@ -1,4 +1,4 @@
-import { JiraSearchResponse, JiraError, JiraFilter, JiraIssue, JiraTransition, JiraComment, JiraCommentsPage, JiraCredentials } from './types';
+import { JiraSearchResponse, JiraError, JiraFilter, JiraIssue, JiraTransition, JiraComment, JiraCommentsPage, JiraCredentials, AdfNode } from './types';
 import { Result, ok, err } from '../core/result';
 import { IAuthService, IJiraClient } from '../core/interfaces';
 
@@ -215,5 +215,12 @@ export class JiraClient implements IJiraClient {
             return result;
         }
         return ok(result.data.comments);
+    }
+
+    async addComment(issueKey: string, body: AdfNode): Promise<Result<JiraComment, JiraClientError>> {
+        return this.request<JiraComment>(`/rest/api/3/issue/${issueKey}/comment`, {
+            method: 'POST',
+            body: { body }
+        });
     }
 }

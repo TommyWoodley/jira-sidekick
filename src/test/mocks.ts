@@ -15,6 +15,7 @@ import type {
     JiraFilter,
     JiraTransition,
     JiraComment,
+    AdfNode,
 } from '../shared/models';
 
 export const mockIssue: JiraIssue = {
@@ -163,6 +164,7 @@ export class MockJiraClient implements IJiraClient {
     getTransitionsResult: Result<JiraTransition[], JiraClientError> = ok(mockTransitions);
     transitionIssueResult: Result<void, JiraClientError> = ok(undefined);
     getCommentsResult: Result<JiraComment[], JiraClientError> = ok(mockComments);
+    addCommentResult: Result<JiraComment, JiraClientError> = ok(mockComments[0]);
 
     async searchIssues(): Promise<Result<JiraSearchResponse, JiraClientError>> {
         return this.searchIssuesResult;
@@ -202,6 +204,10 @@ export class MockJiraClient implements IJiraClient {
 
     async getComments(): Promise<Result<JiraComment[], JiraClientError>> {
         return this.getCommentsResult;
+    }
+
+    async addComment(_issueKey: string, _body: AdfNode): Promise<Result<JiraComment, JiraClientError>> {
+        return this.addCommentResult;
     }
 }
 

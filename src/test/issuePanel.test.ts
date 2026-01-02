@@ -654,6 +654,55 @@ suite('IssuePanel Test Suite', () => {
         });
     });
 
+    suite('addComment()', () => {
+        test('adds comment and returns it', async () => {
+            client.getIssueResult = ok<JiraIssue>(mockIssue);
+            client.getCommentsResult = ok<JiraComment[]>([]);
+            client.addCommentResult = ok<JiraComment>(mockComments[0]);
+
+            const extensionUri = vscode.Uri.file('/mock/extension');
+            await IssuePanel.showPreview(extensionUri, client, 'TEST-1', 'Test Issue', () => { });
+
+            const internal = getInternalPanel(getPreviewPanel()!);
+            const api = internal.createApi();
+            await api.loadIssue('TEST-1');
+
+            const result = await api.addComment('Test comment');
+            assert.strictEqual(result.id, mockComments[0].id);
+        });
+
+        test('throws error when no issue key', async () => {
+            const extensionUri = vscode.Uri.file('/mock/extension');
+            await IssuePanel.showPreview(extensionUri, client, '', 'Test Issue', () => { });
+
+            const internal = getInternalPanel(getPreviewPanel()!);
+            const api = internal.createApi();
+
+            await assert.rejects(
+                async () => await api.addComment('Test comment'),
+                { message: 'No issue loaded' }
+            );
+        });
+
+        test('handles addComment error', async () => {
+            client.getIssueResult = ok<JiraIssue>(mockIssue);
+            client.getCommentsResult = ok<JiraComment[]>([]);
+            client.addCommentResult = err(new JiraClientError('Failed to add comment', 400));
+
+            const extensionUri = vscode.Uri.file('/mock/extension');
+            await IssuePanel.showPreview(extensionUri, client, 'TEST-1', 'Test Issue', () => { });
+
+            const internal = getInternalPanel(getPreviewPanel()!);
+            const api = internal.createApi();
+            await api.loadIssue('TEST-1');
+
+            await assert.rejects(
+                async () => await api.addComment('Test comment'),
+                { message: 'Failed to add comment' }
+            );
+        });
+    });
+
     suite('pin()', () => {
         test('converts preview to pinned panel', async () => {
             const extensionUri = vscode.Uri.file('/mock/extension');

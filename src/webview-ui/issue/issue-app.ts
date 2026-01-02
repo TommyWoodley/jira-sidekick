@@ -133,6 +133,7 @@ export class IssueApp extends LitElement {
   @state() private transitionsError: string | null = null;
   @state() private isTransitioning = false;
   @state() private comments: JiraComment[] = [];
+  @state() private isSubmittingComment = false;
 
   private async loadIssue(issueKey: string) {
     this.isLoading = true;
@@ -224,6 +225,36 @@ export class IssueApp extends LitElement {
       filename: attachment.filename,
       content: attachment.content
     });
+  }
+
+  private async handleAddComment(e: CustomEvent<{ markdown: string }>) {
+    const markdown = e.detail.markdown;
+    if (!markdown.trim()) {
+      return;
+    }
+
+    const confirmed = window.confirm('Are you sure you want to post this comment?');
+    if (!confirmed) {
+      return;
+    }
+
+    this.isSubmittingComment = true;
+
+    try {
+      const newComment = await api.addComment(markdown);
+      this.comments = [newComment, ...this.comments];
+
+      const commentsList = this.shadowRoot?.querySelector('comments-list') as { hideInput?: () => void } | null;
+      if (commentsList?.hideInput) {
+        commentsList.hideInput();
+      }
+
+      await this.handleRefresh();
+    } catch (err) {
+      this.error = { issueKey: this.issue?.key || '', message: `Failed to add comment: ${String(err)}` };
+    } finally {
+      this.isSubmittingComment = false;
+    }
   }
 
   connectedCallback() {
@@ -330,6 +361,8 @@ export class IssueApp extends LitElement {
         <comments-list
           .comments=${this.comments}
           .imageMap=${this.imageMap}
+          ?submitting=${this.isSubmittingComment}
+          @add-comment=${this.handleAddComment}
         ></comments-list>
       </div>
     `;
