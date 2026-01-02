@@ -1,9 +1,18 @@
 import { defineConfig } from '@vscode/test-cli';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-	files: 'out/test/**/*.test.js',
+	tests: [
+		{
+			files: 'out/test/**/*.test.js',
+			srcDir: resolve(__dirname, 'src'),
+		}
+	],
 	coverage: {
-		include: ['out/**/*.js'],
-		exclude: ['out/test/**', 'out/webview-ui/**'],
+		exclude: ['**/test/**', '**/webview-ui/**'],
+		includeAll: true,
 	},
 });
