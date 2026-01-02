@@ -26,6 +26,26 @@ const mockIssue: JiraIssue = {
     },
 };
 
+const mockIssue2: JiraIssue = {
+    id: '2',
+    key: 'TEST-2',
+    self: 'https://test.atlassian.net/rest/api/3/issue/2',
+    fields: {
+        summary: 'Another Test Issue',
+        status: {
+            id: '2',
+            name: 'In Progress',
+            statusCategory: { id: 4, key: 'indeterminate', name: 'In Progress', colorName: 'blue' },
+        },
+        issuetype: { id: '10001', name: 'Task' },
+        priority: { id: '2', name: 'High' },
+        assignee: { accountId: '123', displayName: 'Test User' },
+        reporter: { accountId: '456', displayName: 'Reporter' },
+        created: '2024-01-02T00:00:00.000Z',
+        updated: '2024-01-02T00:00:00.000Z',
+    },
+};
+
 class MockSecretStorage implements vscode.SecretStorage {
     private storage = new Map<string, string>();
     onDidChange = new vscode.EventEmitter<vscode.SecretStorageChangeEvent>().event;
@@ -71,6 +91,18 @@ suite('CommandsManager Test Suite', () => {
         test('does nothing when issue is undefined', () => {
             commandsManager.openInBrowser(undefined as unknown as JiraIssue);
         });
+
+        test('opens browser with valid issue', () => {
+            commandsManager.openInBrowser(mockIssue);
+        });
+
+        test('opens browser with issue having different self URL format', () => {
+            const issueWithDifferentUrl: JiraIssue = {
+                ...mockIssue,
+                self: 'https://test.atlassian.net/rest/api/3/issue/12345',
+            };
+            commandsManager.openInBrowser(issueWithDifferentUrl);
+        });
     });
 
     suite('transitionIssue()', () => {
@@ -81,6 +113,36 @@ suite('CommandsManager Test Suite', () => {
 
         test('uses provided issue without showing picker', async () => {
             await commandsManager.transitionIssue(mockIssue);
+        });
+
+        test('uses provided issue with different status', async () => {
+            await commandsManager.transitionIssue(mockIssue2);
+        });
+    });
+
+    suite('openIssuePreview()', () => {
+        test('does nothing when issue is null', async () => {
+            await commandsManager.openIssuePreview(null as unknown as JiraIssue);
+        });
+
+        test('does nothing when issue is undefined', async () => {
+            await commandsManager.openIssuePreview(undefined as unknown as JiraIssue);
+        });
+    });
+
+    suite('openIssuePinned()', () => {
+        test('does nothing when issue is null', async () => {
+            await commandsManager.openIssuePinned(null as unknown as JiraIssue);
+        });
+
+        test('does nothing when issue is undefined', async () => {
+            await commandsManager.openIssuePinned(undefined as unknown as JiraIssue);
+        });
+    });
+
+    suite('configure()', () => {
+        test('does nothing when extensionUri is not set', async () => {
+            await commandsManager.configure();
         });
     });
 });
