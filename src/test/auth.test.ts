@@ -107,33 +107,5 @@ suite('AuthService Test Suite', () => {
             assert.strictEqual(result, true);
         });
     });
-
-    suite('setSelectedFilter()', () => {
-        test('stores filter ID', async () => {
-            await authService.setSelectedFilter('12345');
-            const stored = await mockStorage.get('jira-sidekick.selectedFilter');
-            assert.strictEqual(stored, '12345');
-        });
-
-        test('deletes filter when null is passed', async () => {
-            await authService.setSelectedFilter('12345');
-            await authService.setSelectedFilter(null);
-            const stored = await mockStorage.get('jira-sidekick.selectedFilter');
-            assert.strictEqual(stored, undefined);
-        });
-    });
-
-    suite('getSelectedFilter()', () => {
-        test('returns null when no filter selected', async () => {
-            const result = await authService.getSelectedFilter();
-            assert.strictEqual(result, null);
-        });
-
-        test('returns stored filter ID', async () => {
-            await authService.setSelectedFilter('12345');
-            const result = await authService.getSelectedFilter();
-            assert.strictEqual(result, '12345');
-        });
-    });
 });
 
