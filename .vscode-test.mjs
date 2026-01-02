@@ -14,5 +14,6 @@ export default defineConfig({
 	coverage: {
 		exclude: ['**/test/**', '**/webview-ui/**'],
 		includeAll: true,
+		output: 'coverage/extension',
 	},
 });
