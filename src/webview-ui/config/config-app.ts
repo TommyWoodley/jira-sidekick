@@ -163,7 +163,7 @@ export class ConfigApp extends LitElement {
   }
 
   private async handleTest() {
-    if (!this.validateForm()) return;
+    if (!this.validateForm()) {return;}
     this.isLoading = true;
     try {
       const { success, message } = await api.testConnection(this.credentials);
@@ -181,7 +181,7 @@ export class ConfigApp extends LitElement {
 
   private async handleSave(e: Event) {
     e.preventDefault();
-    if (!this.validateForm()) return;
+    if (!this.validateForm()) {return;}
     this.isLoading = true;
     try {
       const { success, message } = await api.saveCredentials(this.credentials);

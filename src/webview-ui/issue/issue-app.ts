@@ -272,19 +272,19 @@ export class IssueApp extends LitElement {
   }
 
   private formatFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024) {return `${bytes} B`;}
+    if (bytes < 1024 * 1024) {return `${(bytes / 1024).toFixed(1)} KB`;}
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   private getFileTypeIcon(mimeType: string): string {
-    if (mimeType.startsWith('image/')) return '🖼️';
-    if (mimeType.startsWith('video/')) return '🎬';
-    if (mimeType.startsWith('audio/')) return '🎵';
-    if (mimeType.includes('pdf')) return '📄';
-    if (mimeType.includes('zip') || mimeType.includes('archive')) return '📦';
-    if (mimeType.includes('text') || mimeType.includes('document')) return '📝';
-    if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return '📊';
+    if (mimeType.startsWith('image/')) {return '🖼️';}
+    if (mimeType.startsWith('video/')) {return '🎬';}
+    if (mimeType.startsWith('audio/')) {return '🎵';}
+    if (mimeType.includes('pdf')) {return '📄';}
+    if (mimeType.includes('zip') || mimeType.includes('archive')) {return '📦';}
+    if (mimeType.includes('text') || mimeType.includes('document')) {return '📝';}
+    if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) {return '📊';}
     return '📎';
   }
 

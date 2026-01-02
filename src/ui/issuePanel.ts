@@ -226,7 +226,7 @@ export class IssuePanel {
         const attachmentMaps = this.attachmentMaps;
 
         const traverse = (node: unknown) => {
-            if (!node || typeof node !== 'object') return;
+            if (!node || typeof node !== 'object') {return;}
 
             const n = node as { type?: string; attrs?: { id?: string; alt?: string }; content?: unknown[] };
 
