@@ -8,6 +8,7 @@ import { IssuePanel } from './issuePanel';
 
 export class CommandsManager {
     private static readonly DOUBLE_CLICK_THRESHOLD = 400;
+    private static readonly DEFAULT_JQL = 'assignee = currentUser() ORDER BY updated DESC';
     private extensionUri: vscode.Uri | undefined;
     private lastClickTime = 0;
     private lastClickedKey: string | null = null;
@@ -53,6 +54,18 @@ export class CommandsManager {
         }
     }
 
+    private async getJql(): Promise<string> {
+        const selectedFilterId = await this.authService.getSelectedFilter();
+        if (selectedFilterId) {
+            const filterResult = await this.client.getFilterById(selectedFilterId);
+            if (filterResult.success) {
+                return filterResult.data.jql;
+            }
+        }
+        return vscode.workspace.getConfiguration('jira-sidekick').get<string>('jql')
+            || CommandsManager.DEFAULT_JQL;
+    }
+
     async refresh(): Promise<void> {
         const hasCredentials = await this.authService.hasCredentials();
         if (!hasCredentials) {
@@ -66,22 +79,7 @@ export class CommandsManager {
             return;
         }
 
-        let jql: string;
-        const selectedFilterId = await this.authService.getSelectedFilter();
-
-        if (selectedFilterId) {
-            const filterResult = await this.client.getFilterById(selectedFilterId);
-            if (filterResult.success) {
-                jql = filterResult.data.jql;
-            } else {
-                jql = vscode.workspace.getConfiguration('jira-sidekick').get<string>('jql')
-                    || 'assignee = currentUser() ORDER BY updated DESC';
-            }
-        } else {
-            jql = vscode.workspace.getConfiguration('jira-sidekick').get<string>('jql')
-                || 'assignee = currentUser() ORDER BY updated DESC';
-        }
-
+        const jql = await this.getJql();
         const searchResult = await this.client.searchIssues(jql);
         if (searchResult.success) {
             this.cache.setIssues(searchResult.data.issues);
