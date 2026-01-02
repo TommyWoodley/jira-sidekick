@@ -1,9 +1,11 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
+import '@vscode-elements/elements/dist/vscode-button/index.js';
 import { sharedStyles } from '../../shared/styles';
 import { formatRelativeTime, formatFullDate } from '../../shared/utils/format';
 import '../../shared/components/empty-state';
 import '../../shared/adf-renderer';
+import './comment-input';
 import type { JiraComment } from '@shared/models';
 
 @customElement('comments-list')
@@ -60,16 +62,59 @@ export class CommentsList extends LitElement {
       .comment-body {
         font-size: 0.95em;
       }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .comment-input-container {
+        margin-top: 16px;
+      }
     `,
   ];
 
   @property({ type: Array }) comments: JiraComment[] = [];
   @property({ type: Object }) imageMap: Record<string, string> = {};
+  @property({ type: Boolean }) submitting = false;
+
+  @state() private showInput = false;
+
+  private handleAddCommentClick() {
+    this.showInput = true;
+  }
+
+  private handleCancelComment() {
+    this.showInput = false;
+  }
+
+  hideInput() {
+    this.showInput = false;
+  }
 
   render() {
     return html`
       <div class="comments-section">
-        <div class="section-title">Comments (${this.comments.length})</div>
+        <div class="section-header">
+          <div class="section-title">Comments (${this.comments.length})</div>
+          ${!this.showInput ? html`
+            <vscode-button secondary @click=${this.handleAddCommentClick}>
+              + Add Comment
+            </vscode-button>
+          ` : ''}
+        </div>
+
+        ${this.showInput ? html`
+          <div class="comment-input-container">
+            <comment-input
+              ?disabled=${this.submitting}
+              @cancel-comment=${this.handleCancelComment}
+            ></comment-input>
+          </div>
+        ` : ''}
+
         ${this.comments.length > 0 ? html`
           <div class="comments-list">
             ${this.comments.map((comment) => html`

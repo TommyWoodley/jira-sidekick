@@ -831,5 +831,125 @@ suite('JiraClient Test Suite', () => {
             assert.strictEqual(result.success, false);
         });
     });
+
+    suite('addComment()', () => {
+        const mockAdfBody = {
+            type: 'doc',
+            attrs: { version: 1 },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Test comment' }] }]
+        };
+
+        test('returns error when no credentials', async () => {
+            mockAuth.setMockCredentials(null);
+            const result = await client.addComment('TEST-1', mockAdfBody);
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.strictEqual(result.error.message, 'No credentials configured');
+            }
+        });
+
+        test('returns comment on success', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            const mockComment = {
+                id: '10000',
+                author: { accountId: '123', displayName: 'Test User' },
+                body: mockAdfBody,
+                created: '2024-01-01T00:00:00.000Z',
+                updated: '2024-01-01T00:00:00.000Z'
+            };
+            mockFetchResponse = { ok: true, status: 201, json: async () => mockComment };
+
+            const result = await client.addComment('TEST-1', mockAdfBody);
+            assert.strictEqual(result.success, true);
+            if (result.success) {
+                assert.strictEqual(result.data.id, '10000');
+                assert.strictEqual(result.data.author.displayName, 'Test User');
+            }
+        });
+
+        test('returns error on 404', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = { ok: false, status: 404, json: async () => ({ errorMessages: [] }) };
+
+            const result = await client.addComment('NOTFOUND-1', mockAdfBody);
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('not found'));
+                assert.strictEqual(result.error.statusCode, 404);
+            }
+        });
+
+        test('returns error on 401', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = { ok: false, status: 401, json: async () => ({ errorMessages: [] }) };
+
+            const result = await client.addComment('TEST-1', mockAdfBody);
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('Authentication'));
+                assert.strictEqual(result.error.statusCode, 401);
+            }
+        });
+
+        test('returns error on 403', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = { ok: false, status: 403, json: async () => ({ errorMessages: [] }) };
+
+            const result = await client.addComment('TEST-1', mockAdfBody);
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('Access denied'));
+                assert.strictEqual(result.error.statusCode, 403);
+            }
+        });
+
+        test('returns error on 400 with Jira error messages', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = {
+                ok: false,
+                status: 400,
+                json: async () => ({ errorMessages: ['Invalid comment body'], errors: {} }),
+            };
+
+            const result = await client.addComment('TEST-1', mockAdfBody);
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('Invalid comment body'));
+                assert.strictEqual(result.error.statusCode, 400);
+            }
+        });
+
+        test('handles non-JSON error response', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = {
+                ok: false,
+                status: 500,
+                json: async () => { throw new Error('Not JSON'); },
+            };
+
+            const result = await client.addComment('TEST-1', mockAdfBody);
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('500'));
+            }
+        });
+
+        test('handles network error', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            globalThis.fetch = async () => { throw new Error('Network error'); };
+
+            const result = await client.addComment('TEST-1', mockAdfBody);
+            assert.strictEqual(result.success, false);
+        });
+
+        test('handles non-Error thrown value', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            // eslint-disable-next-line no-throw-literal
+            globalThis.fetch = async () => { throw 'string error'; };
+
+            const result = await client.addComment('TEST-1', mockAdfBody);
+            assert.strictEqual(result.success, false);
+        });
+    });
 });
 

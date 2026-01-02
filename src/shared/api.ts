@@ -54,5 +54,7 @@ export interface IssueApi {
     getTransitions(): Promise<JiraTransition[]>;
 
     transitionIssue(transitionId: string): Promise<{ issue: JiraIssue }>;
+
+    addComment(markdown: string): Promise<JiraComment>;
 }
 

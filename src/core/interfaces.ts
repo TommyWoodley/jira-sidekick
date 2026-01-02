@@ -8,6 +8,7 @@ import type {
     JiraFilter,
     JiraTransition,
     JiraComment,
+    AdfNode,
 } from '../shared/models';
 
 export interface IAuthService {
@@ -28,6 +29,7 @@ export interface IJiraClient {
     getTransitions(issueKey: string): Promise<Result<JiraTransition[], JiraClientError>>;
     transitionIssue(issueKey: string, transitionId: string): Promise<Result<void, JiraClientError>>;
     getComments(issueKey: string): Promise<Result<JiraComment[], JiraClientError>>;
+    addComment(issueKey: string, body: AdfNode): Promise<Result<JiraComment, JiraClientError>>;
 }
 
 export interface IIssueCache {

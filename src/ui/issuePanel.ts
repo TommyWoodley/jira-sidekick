@@ -5,6 +5,7 @@ import { IJiraClient } from '../core/interfaces';
 import type { IssueApi } from '../shared/api';
 import type { JiraIssue } from '../shared/models';
 import { exposeApi } from '../shared/rpc';
+import { markdownToAdf } from '../jira/markdownToAdf';
 
 export class IssuePanel {
     private static previewPanel: IssuePanel | undefined;
@@ -126,6 +127,18 @@ export class IssuePanel {
                 this.attachmentMaps = this.buildAttachmentMaps(issue);
                 this.mediaIdToUrl = this.buildMediaIdToUrl(issue);
                 return { issue };
+            },
+
+            addComment: async (markdown: string) => {
+                if (!this.currentIssueKey) {
+                    throw new Error('No issue loaded');
+                }
+                const adfBody = markdownToAdf(markdown);
+                const result = await this.client.addComment(this.currentIssueKey, adfBody);
+                if (!result.success) {
+                    throw new Error(result.error.message);
+                }
+                return result.data;
             },
         };
     }
