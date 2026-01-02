@@ -9,6 +9,7 @@ export type {
     JiraSearchResponse,
     JiraError,
     JiraFilter,
+    JiraTransition,
     AdfMark,
     AdfNode,
 } from '../shared/models';

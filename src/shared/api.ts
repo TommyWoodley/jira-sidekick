@@ -1,4 +1,4 @@
-import type { JiraCredentials, JiraFilter, JiraIssue } from './models';
+import type { JiraCredentials, JiraFilter, JiraIssue, JiraTransition } from './models';
 
 export interface ConfigApi {
     getCredentials(): Promise<{
@@ -48,5 +48,9 @@ export interface IssueApi {
     }): Promise<void>;
 
     loadImage(id: string): Promise<string | null>;
+
+    getTransitions(): Promise<JiraTransition[]>;
+
+    transitionIssue(transitionId: string): Promise<{ issue: JiraIssue }>;
 }
 

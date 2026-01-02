@@ -99,3 +99,9 @@ export interface JiraFilter {
     favourite: boolean;
 }
 
+export interface JiraTransition {
+    id: string;
+    name: string;
+    to: JiraStatus;
+}
+
