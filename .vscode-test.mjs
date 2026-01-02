@@ -12,7 +12,7 @@ export default defineConfig({
 		}
 	],
 	coverage: {
-		exclude: ['**/test/**', '**/webview-ui/**'],
+		exclude: ['**/test/**'],
 		includeAll: true,
 	},
 });
