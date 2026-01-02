@@ -32,7 +32,7 @@ export interface Webview {
 
 export function exposeApi<T extends object>(webview: Webview, impl: T): { dispose(): void } {
     return webview.onDidReceiveMessage(async (msg: unknown) => {
-        if (!isRpcCall(msg)) return;
+        if (!isRpcCall(msg)) {return;}
 
         const { id, method, args } = msg;
 

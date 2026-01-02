@@ -30,6 +30,11 @@ jobs:
         run: npm run compile
 
       - name: Run tests
-        run: xvfb-run -a npm test
+        run: xvfb-run -a npm run test:coverage
         if: runner.os == 'Linux'
 
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: coverage/lcov.info

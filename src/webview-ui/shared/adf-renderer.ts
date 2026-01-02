@@ -1,14 +1,16 @@
 import { LitElement, html, css, TemplateResult, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import type { AdfNode, AdfMark } from '@shared/models';
 import type { IssueApi } from '@shared/api';
 import { createApiClient } from './rpc-client';
+import { highlightCode, codeHighlightStyles } from './code-highlighter';
 
 const api = createApiClient<IssueApi>();
 
 @customElement('adf-renderer')
 export class AdfRenderer extends LitElement {
-  static styles = css`
+  static styles = [codeHighlightStyles, css`
     :host {
       display: block;
       line-height: 1.6;
@@ -233,7 +235,7 @@ export class AdfRenderer extends LitElement {
     .inline-card::before {
       content: '🔗';
     }
-  `;
+  `];
 
   @property({ type: Object }) adf: AdfNode | null = null;
   @property({ type: Object }) imageMap: Record<string, string> = {};
@@ -337,7 +339,8 @@ export class AdfRenderer extends LitElement {
       case 'codeBlock': {
         const language = (node.attrs?.language as string) || '';
         const code = node.content?.map(n => n.text || '').join('') || '';
-        return html`<pre><code class="language-${language}">${code}</code></pre>`;
+        const highlighted = highlightCode(code, language);
+        return html`<pre><code class="hljs language-${language}">${unsafeHTML(highlighted)}</code></pre>`;
       }
 
       case 'blockquote':

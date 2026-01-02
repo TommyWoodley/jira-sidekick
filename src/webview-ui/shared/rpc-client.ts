@@ -53,7 +53,7 @@ function getVsCodeApi(): VsCodeApi {
 }
 
 function initializeListener() {
-    if (listenerInitialized) return;
+    if (listenerInitialized) {return;}
     listenerInitialized = true;
 
     window.addEventListener('message', (event: MessageEvent) => {
