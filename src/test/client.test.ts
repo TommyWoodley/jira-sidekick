@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import { JiraClient, JiraClientError } from '../jira/client';
 import { AuthService } from '../jira/auth';
-import { JiraCredentials } from '../jira/types';
+import { JiraCredentials, JiraTransition } from '../jira/types';
 
 const testCredentials: JiraCredentials = {
     baseUrl: 'https://test.atlassian.net',
@@ -496,6 +496,196 @@ suite('JiraClient Test Suite', () => {
             globalThis.fetch = async () => { throw 'string error'; };
 
             const result = await client.downloadAttachment('https://example.com/attachment');
+            assert.strictEqual(result.success, false);
+        });
+    });
+
+    suite('getTransitions()', () => {
+        test('returns error when no credentials', async () => {
+            mockAuth.setMockCredentials(null);
+            const result = await client.getTransitions('TEST-1');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.strictEqual(result.error.message, 'No credentials configured');
+            }
+        });
+
+        test('returns transitions on success', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            const mockTransitionsList: JiraTransition[] = [
+                { id: '21', name: 'In Progress', to: { id: '3', name: 'In Progress', statusCategory: { id: 4, key: 'indeterminate', name: 'In Progress', colorName: 'blue' } } },
+                { id: '31', name: 'Done', to: { id: '5', name: 'Done', statusCategory: { id: 3, key: 'done', name: 'Done', colorName: 'green' } } },
+            ];
+            const mockTransitions = { transitions: mockTransitionsList };
+            mockFetchResponse = { ok: true, status: 200, json: async () => mockTransitions };
+
+            const result = await client.getTransitions('TEST-1');
+            assert.strictEqual(result.success, true);
+            if (result.success) {
+                assert.strictEqual(result.data.length, 2);
+                assert.strictEqual(result.data[0].name, 'In Progress');
+            }
+        });
+
+        test('returns error on 404', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = { ok: false, status: 404, json: async () => ({ errorMessages: [] }) };
+
+            const result = await client.getTransitions('NOTFOUND-1');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('not found'));
+                assert.strictEqual(result.error.statusCode, 404);
+            }
+        });
+
+        test('returns error on 403', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = { ok: false, status: 403, json: async () => ({ errorMessages: [] }) };
+
+            const result = await client.getTransitions('TEST-1');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('permission'));
+                assert.strictEqual(result.error.statusCode, 403);
+            }
+        });
+
+        test('handles non-JSON error response', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = {
+                ok: false,
+                status: 500,
+                json: async () => { throw new Error('Not JSON'); },
+            };
+
+            const result = await client.getTransitions('TEST-1');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('500'));
+            }
+        });
+
+        test('handles network error', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            globalThis.fetch = async () => { throw new Error('Network error'); };
+
+            const result = await client.getTransitions('TEST-1');
+            assert.strictEqual(result.success, false);
+        });
+
+        test('handles non-Error thrown value', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            // eslint-disable-next-line no-throw-literal
+            globalThis.fetch = async () => { throw 'string error'; };
+
+            const result = await client.getTransitions('TEST-1');
+            assert.strictEqual(result.success, false);
+        });
+    });
+
+    suite('transitionIssue()', () => {
+        test('returns error when no credentials', async () => {
+            mockAuth.setMockCredentials(null);
+            const result = await client.transitionIssue('TEST-1', '21');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.strictEqual(result.error.message, 'No credentials configured');
+            }
+        });
+
+        test('returns success on 204', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = { ok: true, status: 204 };
+
+            const result = await client.transitionIssue('TEST-1', '21');
+            assert.strictEqual(result.success, true);
+        });
+
+        test('returns error on 404', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = { ok: false, status: 404, json: async () => ({ errorMessages: [] }) };
+
+            const result = await client.transitionIssue('NOTFOUND-1', '21');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('not found'));
+                assert.strictEqual(result.error.statusCode, 404);
+            }
+        });
+
+        test('returns error on 403', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = { ok: false, status: 403, json: async () => ({ errorMessages: [] }) };
+
+            const result = await client.transitionIssue('TEST-1', '21');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('permission'));
+                assert.strictEqual(result.error.statusCode, 403);
+            }
+        });
+
+        test('returns error on 400 with Jira error messages', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = {
+                ok: false,
+                status: 400,
+                json: async () => ({ errorMessages: ['Transition is not valid'], errors: {} }),
+            };
+
+            const result = await client.transitionIssue('TEST-1', '999');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('Transition is not valid'));
+                assert.strictEqual(result.error.statusCode, 400);
+            }
+        });
+
+        test('returns default message on 400 without error messages', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = {
+                ok: false,
+                status: 400,
+                json: async () => ({ errorMessages: [], errors: {} }),
+            };
+
+            const result = await client.transitionIssue('TEST-1', '999');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('Invalid transition'));
+            }
+        });
+
+        test('handles non-JSON error response', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = {
+                ok: false,
+                status: 500,
+                json: async () => { throw new Error('Not JSON'); },
+            };
+
+            const result = await client.transitionIssue('TEST-1', '21');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('500'));
+            }
+        });
+
+        test('handles network error', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            globalThis.fetch = async () => { throw new Error('Network error'); };
+
+            const result = await client.transitionIssue('TEST-1', '21');
+            assert.strictEqual(result.success, false);
+        });
+
+        test('handles non-Error thrown value', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            // eslint-disable-next-line no-throw-literal
+            globalThis.fetch = async () => { throw 'string error'; };
+
+            const result = await client.transitionIssue('TEST-1', '21');
             assert.strictEqual(result.success, false);
         });
     });

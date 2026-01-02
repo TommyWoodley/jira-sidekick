@@ -89,6 +89,36 @@ export class IssuePanel {
             loadImage: async (id: string) => {
                 return this.loadSingleImage(id);
             },
+
+            getTransitions: async () => {
+                if (!this.currentIssueKey) {
+                    throw new Error('No issue loaded');
+                }
+                const result = await this.client.getTransitions(this.currentIssueKey);
+                if (!result.success) {
+                    throw new Error(result.error.message);
+                }
+                return result.data;
+            },
+
+            transitionIssue: async (transitionId: string) => {
+                if (!this.currentIssueKey) {
+                    throw new Error('No issue loaded');
+                }
+                const transitionResult = await this.client.transitionIssue(this.currentIssueKey, transitionId);
+                if (!transitionResult.success) {
+                    throw new Error(transitionResult.error.message);
+                }
+                const issueResult = await this.client.getIssue(this.currentIssueKey);
+                if (!issueResult.success) {
+                    throw new Error(issueResult.error.message);
+                }
+                const issue = issueResult.data;
+                this.currentIssue = issue;
+                this.attachmentMaps = this.buildAttachmentMaps(issue);
+                this.mediaIdToUrl = this.buildMediaIdToUrl(issue);
+                return { issue };
+            },
         };
     }
 

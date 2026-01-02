@@ -27,7 +27,8 @@ export class CommandsManager {
             vscode.commands.registerCommand('jira-sidekick.openInBrowser', (issue: JiraIssue) => this.openInBrowser(issue)),
             vscode.commands.registerCommand('jira-sidekick.handleIssueClick', (issue: JiraIssue) => this.handleIssueClick(issue)),
             vscode.commands.registerCommand('jira-sidekick.openIssue', (issue: JiraIssue) => this.openIssuePreview(issue)),
-            vscode.commands.registerCommand('jira-sidekick.openIssuePinned', (issue: JiraIssue) => this.openIssuePinned(issue))
+            vscode.commands.registerCommand('jira-sidekick.openIssuePinned', (issue: JiraIssue) => this.openIssuePinned(issue)),
+            vscode.commands.registerCommand('jira-sidekick.transitionIssue', (issue?: JiraIssue) => this.transitionIssue(issue))
         );
     }
 
@@ -144,5 +145,80 @@ export class CommandsManager {
             issue.fields.summary,
             (i) => this.openInBrowser(i)
         );
+    }
+
+    async transitionIssue(issue?: JiraIssue): Promise<void> {
+        let selectedIssue = issue;
+
+        if (!selectedIssue) {
+            const issues = this.cache.getIssues();
+            if (issues.length === 0) {
+                vscode.window.showWarningMessage('No issues available. Please refresh first.');
+                return;
+            }
+
+            const issueItems = issues.map(i => ({
+                label: i.key,
+                description: i.fields.summary,
+                detail: `Status: ${i.fields.status.name}`,
+                issue: i
+            }));
+
+            const selected = await vscode.window.showQuickPick(issueItems, {
+                placeHolder: 'Select an issue to transition',
+                matchOnDescription: true
+            });
+
+            if (!selected) {
+                return;
+            }
+            selectedIssue = selected.issue;
+        }
+
+        const transitionsResult = await this.client.getTransitions(selectedIssue.key);
+        if (!transitionsResult.success) {
+            vscode.window.showErrorMessage(`Failed to get transitions: ${transitionsResult.error.message}`);
+            return;
+        }
+
+        const transitions = transitionsResult.data;
+        if (transitions.length === 0) {
+            vscode.window.showInformationMessage('No transitions available for this issue.');
+            return;
+        }
+
+        const transitionItems = transitions.map(t => ({
+            label: t.name,
+            description: `→ ${t.to.name}`,
+            transition: t
+        }));
+
+        const selectedTransition = await vscode.window.showQuickPick(transitionItems, {
+            placeHolder: `Transition ${selectedIssue.key} to...`
+        });
+
+        if (!selectedTransition) {
+            return;
+        }
+
+        const result = await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: `Transitioning ${selectedIssue.key} to ${selectedTransition.transition.to.name}...`,
+                cancellable: false
+            },
+            async () => {
+                return await this.client.transitionIssue(selectedIssue!.key, selectedTransition.transition.id);
+            }
+        );
+
+        if (result.success) {
+            vscode.window.showInformationMessage(
+                `${selectedIssue.key} transitioned to ${selectedTransition.transition.to.name}`
+            );
+            await this.refresh();
+        } else {
+            vscode.window.showErrorMessage(`Failed to transition: ${result.error.message}`);
+        }
     }
 }

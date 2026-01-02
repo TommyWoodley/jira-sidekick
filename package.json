@@ -57,6 +57,12 @@
         "title": "Open Issue Details",
         "category": "Jira Sidekick",
         "icon": "$(go-to-file)"
+      },
+      {
+        "command": "jira-sidekick.transitionIssue",
+        "title": "Transition Issue",
+        "category": "Jira Sidekick",
+        "icon": "$(arrow-swap)"
       }
     ],
     "menus": {
@@ -82,6 +88,17 @@
           "command": "jira-sidekick.openInBrowser",
           "when": "view == jira-sidekick.issues && viewItem == issue",
           "group": "navigation@2"
+        },
+        {
+          "command": "jira-sidekick.transitionIssue",
+          "when": "view == jira-sidekick.issues && viewItem == issue",
+          "group": "actions@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "jira-sidekick.transitionIssue",
+          "when": "true"
         }
       ]
     },
