@@ -1,6 +1,6 @@
 # Jira Sidekick
 
-[![Coverage Status](https://coveralls.io/repos/github/thwoodle/jira-sidekick/badge.svg?branch=main)](https://coveralls.io/github/thwoodle/jira-sidekick?branch=main)
+[![Coverage Status](https://coveralls.io/repos/github/TommyWoodley/jira-sidekick/badge.svg?branch=main)](https://coveralls.io/github/TommyWoodley/jira-sidekick?branch=main)
 
 A VS Code extension that brings Jira into your editor, reducing context switching and keeping you in flow.
 
