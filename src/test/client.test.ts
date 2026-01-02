@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import { JiraClient, JiraClientError } from '../jira/client';
 import { AuthService } from '../jira/auth';
-import { JiraCredentials } from '../jira/types';
+import { JiraCredentials, JiraTransition } from '../jira/types';
 
 const testCredentials: JiraCredentials = {
     baseUrl: 'https://test.atlassian.net',
@@ -512,12 +512,11 @@ suite('JiraClient Test Suite', () => {
 
         test('returns transitions on success', async () => {
             mockAuth.setMockCredentials(testCredentials);
-            const mockTransitions = {
-                transitions: [
-                    { id: '21', name: 'In Progress', to: { id: '3', name: 'In Progress', statusCategory: { id: 4, key: 'indeterminate', name: 'In Progress', colorName: 'blue' } } },
-                    { id: '31', name: 'Done', to: { id: '5', name: 'Done', statusCategory: { id: 3, key: 'done', name: 'Done', colorName: 'green' } } },
-                ],
-            };
+            const mockTransitionsList: JiraTransition[] = [
+                { id: '21', name: 'In Progress', to: { id: '3', name: 'In Progress', statusCategory: { id: 4, key: 'indeterminate', name: 'In Progress', colorName: 'blue' } } },
+                { id: '31', name: 'Done', to: { id: '5', name: 'Done', statusCategory: { id: 3, key: 'done', name: 'Done', colorName: 'green' } } },
+            ];
+            const mockTransitions = { transitions: mockTransitionsList };
             mockFetchResponse = { ok: true, status: 200, json: async () => mockTransitions };
 
             const result = await client.getTransitions('TEST-1');
