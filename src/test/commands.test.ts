@@ -170,5 +170,26 @@ suite('CommandsManager Test Suite', () => {
             await commandsManager.configure();
         });
     });
+
+    suite('refresh()', () => {
+        test('uses selected filter when set', async () => {
+            await authService.setCredentials({
+                baseUrl: 'https://test.atlassian.net',
+                email: 'test@example.com',
+                apiToken: 'test-token',
+            });
+            await preferences.setSelectedFilter('12345');
+            await commandsManager.refresh();
+        });
+
+        test('uses default JQL when no filter selected', async () => {
+            await authService.setCredentials({
+                baseUrl: 'https://test.atlassian.net',
+                email: 'test@example.com',
+                apiToken: 'test-token',
+            });
+            await commandsManager.refresh();
+        });
+    });
 });
 
