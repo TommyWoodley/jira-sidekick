@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
-import { IssueCache } from '../core/cache';
+import { IIssueCache } from '../core/interfaces';
 
 export class StatusBarManager {
     private readonly statusBarItem: vscode.StatusBarItem;
 
-    constructor(private readonly cache: IssueCache) {
+    constructor(private readonly cache: IIssueCache) {
         this.statusBarItem = vscode.window.createStatusBarItem(
             vscode.StatusBarAlignment.Left,
             100

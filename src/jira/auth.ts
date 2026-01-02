@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import { JiraCredentials } from './types';
+import { IAuthService } from '../core/interfaces';
 
 const CREDENTIALS_KEY = 'jira-sidekick.credentials';
 
-export class AuthService {
+export class AuthService implements IAuthService {
     constructor(private readonly secretStorage: vscode.SecretStorage) {}
 
     async setCredentials(credentials: JiraCredentials): Promise<void> {

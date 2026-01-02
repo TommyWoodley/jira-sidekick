@@ -1,6 +1,6 @@
-import { AuthService } from './auth';
 import { JiraSearchResponse, JiraError, JiraFilter, JiraIssue, JiraTransition, JiraComment, JiraCommentsPage, JiraCredentials } from './types';
 import { Result, ok, err } from '../core/result';
+import { IAuthService, IJiraClient } from '../core/interfaces';
 
 export class JiraClientError extends Error {
     constructor(
@@ -19,8 +19,8 @@ interface RequestOptions {
     queryParams?: Record<string, string>;
 }
 
-export class JiraClient {
-    constructor(private readonly authService: AuthService) {}
+export class JiraClient implements IJiraClient {
+    constructor(private readonly authService: IAuthService) { }
 
     private async request<T>(
         path: string,

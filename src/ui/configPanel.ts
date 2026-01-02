@@ -1,7 +1,5 @@
 import * as vscode from 'vscode';
-import { AuthService } from '../jira/auth';
-import { JiraClient } from '../jira/client';
-import { PreferencesService } from '../core';
+import { IAuthService, IJiraClient, IPreferencesService } from '../core/interfaces';
 import type { ConfigApi } from '../shared/api';
 import type { JiraCredentials } from '../shared/models';
 import { exposeApi } from '../shared/rpc';
@@ -14,9 +12,9 @@ export class ConfigPanel {
     private constructor(
         panel: vscode.WebviewPanel,
         private readonly extensionUri: vscode.Uri,
-        private readonly authService: AuthService,
-        private readonly preferences: PreferencesService,
-        private readonly client: JiraClient,
+        private readonly authService: IAuthService,
+        private readonly preferences: IPreferencesService,
+        private readonly client: IJiraClient,
         private readonly onSuccess: () => void
     ) {
         this.panel = panel;
@@ -95,9 +93,9 @@ export class ConfigPanel {
 
     public static async show(
         extensionUri: vscode.Uri,
-        authService: AuthService,
-        preferences: PreferencesService,
-        client: JiraClient,
+        authService: IAuthService,
+        preferences: IPreferencesService,
+        client: IJiraClient,
         onSuccess: () => void
     ): Promise<void> {
         if (ConfigPanel.currentPanel) {

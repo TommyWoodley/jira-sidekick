@@ -1,26 +1,28 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { ConfigPanel } from '../ui/configPanel';
-import { AuthService } from '../jira/auth';
 import { JiraClient } from '../jira/client';
 import { PreferencesService } from '../core';
+import { JiraCredentials } from '../jira/types';
+import { IAuthService } from '../core/interfaces';
 
-class MockSecretStorage implements vscode.SecretStorage {
-    private storage = new Map<string, string>();
-    onDidChange = new vscode.EventEmitter<vscode.SecretStorageChangeEvent>().event;
-    get(key: string): Thenable<string | undefined> {
-        return Promise.resolve(this.storage.get(key));
+class MockAuthService implements IAuthService {
+    private credentials: JiraCredentials | null = null;
+
+    async setCredentials(credentials: JiraCredentials): Promise<void> {
+        this.credentials = credentials;
     }
-    store(key: string, value: string): Thenable<void> {
-        this.storage.set(key, value);
-        return Promise.resolve();
+
+    async getCredentials(): Promise<JiraCredentials | null> {
+        return this.credentials;
     }
-    delete(key: string): Thenable<void> {
-        this.storage.delete(key);
-        return Promise.resolve();
+
+    async clearCredentials(): Promise<void> {
+        this.credentials = null;
     }
-    keys(): Thenable<string[]> {
-        return Promise.resolve(Array.from(this.storage.keys()));
+
+    async hasCredentials(): Promise<boolean> {
+        return this.credentials !== null;
     }
 }
 
@@ -47,14 +49,13 @@ class MockMemento implements vscode.Memento {
 }
 
 suite('ConfigPanel Test Suite', () => {
-    let authService: AuthService;
+    let authService: MockAuthService;
     let preferences: PreferencesService;
     let client: JiraClient;
 
     setup(() => {
-        const mockSecretStorage = new MockSecretStorage();
         const mockMemento = new MockMemento();
-        authService = new AuthService(mockSecretStorage);
+        authService = new MockAuthService();
         preferences = new PreferencesService(mockMemento);
         client = new JiraClient(authService);
     });

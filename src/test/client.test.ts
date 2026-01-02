@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import { JiraClient, JiraClientError } from '../jira/client';
-import { AuthService } from '../jira/auth';
 import { JiraCredentials, JiraTransition } from '../jira/types';
+import { IAuthService } from '../core/interfaces';
 
 const testCredentials: JiraCredentials = {
     baseUrl: 'https://test.atlassian.net',
@@ -9,11 +9,23 @@ const testCredentials: JiraCredentials = {
     apiToken: 'test-api-token',
 };
 
-class MockAuthService {
+class MockAuthService implements IAuthService {
     private credentials: JiraCredentials | null = null;
+
+    async setCredentials(credentials: JiraCredentials): Promise<void> {
+        this.credentials = credentials;
+    }
 
     async getCredentials(): Promise<JiraCredentials | null> {
         return this.credentials;
+    }
+
+    async clearCredentials(): Promise<void> {
+        this.credentials = null;
+    }
+
+    async hasCredentials(): Promise<boolean> {
+        return this.credentials !== null;
     }
 
     setMockCredentials(creds: JiraCredentials | null): void {
@@ -70,7 +82,7 @@ suite('JiraClient Test Suite', () => {
 
     setup(() => {
         mockAuth = new MockAuthService();
-        client = new JiraClient(mockAuth as unknown as AuthService);
+        client = new JiraClient(mockAuth);
         setupFetchMock();
     });
 
