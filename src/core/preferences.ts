@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
+import { IPreferencesService } from './interfaces';
 
 const SELECTED_FILTER_KEY = 'jira-sidekick.selectedFilter';
 
-export class PreferencesService {
+export class PreferencesService implements IPreferencesService {
     constructor(private readonly globalState: vscode.Memento) {}
 
     getSelectedFilter(): string | null {

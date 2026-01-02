@@ -1,33 +1,34 @@
 import * as vscode from 'vscode';
-import { AuthService } from './jira/auth';
-import { JiraClient } from './jira/client';
-import { IssueCache, PreferencesService } from './core';
+import { createServiceContainer } from './core/container';
+import { IssueCache } from './core/cache';
 import { IssuesTreeDataProvider } from './ui/issuesTreeView';
 import { StatusBarManager } from './ui/statusBar';
 import { CommandsManager } from './ui/commands';
 import { IssuePanel } from './ui/issuePanel';
 
 export function activate(context: vscode.ExtensionContext) {
-	const authService = new AuthService(context.secrets);
-	const preferences = new PreferencesService(context.globalState);
-	const client = new JiraClient(authService);
-	const cache = new IssueCache();
+	const container = createServiceContainer(context);
 
-	const treeDataProvider = new IssuesTreeDataProvider(cache);
+	const treeDataProvider = new IssuesTreeDataProvider(container.cache);
 	const treeView = vscode.window.createTreeView('jira-sidekick.issues', {
 		treeDataProvider,
 		showCollapseAll: false
 	});
 
-	const statusBar = new StatusBarManager(cache);
+	const statusBar = new StatusBarManager(container.cache);
 	statusBar.show();
 
-	const commands = new CommandsManager(authService, preferences, client, cache);
+	const commands = new CommandsManager(
+		container.authService,
+		container.preferences,
+		container.jiraClient,
+		container.cache
+	);
 	commands.registerCommands(context);
 
-	context.subscriptions.push(treeView, statusBar, cache);
+	context.subscriptions.push(treeView, statusBar, container.cache as IssueCache);
 
-	authService.hasCredentials().then(hasCredentials => {
+	container.authService.hasCredentials().then(hasCredentials => {
 		if (hasCredentials) {
 			vscode.commands.executeCommand('jira-sidekick.refresh');
 		}

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { JiraIssue } from '../jira/types';
-import { IssueCache } from '../core/cache';
+import { IIssueCache } from '../core/interfaces';
 
 export class IssueTreeItem extends vscode.TreeItem {
     constructor(public readonly issue: JiraIssue) {
@@ -48,7 +48,7 @@ export class IssuesTreeDataProvider implements vscode.TreeDataProvider<IssueTree
     private readonly _onDidChangeTreeData = new vscode.EventEmitter<IssueTreeItem | undefined | null | void>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-    constructor(private readonly cache: IssueCache) {
+    constructor(private readonly cache: IIssueCache) {
         cache.onDidChange(() => this.refresh());
     }
 

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { JiraClient } from '../jira/client';
+import { IJiraClient } from '../core/interfaces';
 import type { IssueApi } from '../shared/api';
 import type { JiraIssue } from '../shared/models';
 import { exposeApi } from '../shared/rpc';
@@ -21,7 +21,7 @@ export class IssuePanel {
     private constructor(
         panel: vscode.WebviewPanel,
         private readonly extensionUri: vscode.Uri,
-        private readonly client: JiraClient,
+        private readonly client: IJiraClient,
         private readonly onOpenInBrowser: (issue: JiraIssue) => void,
         issueKey: string,
         pinned: boolean
@@ -132,7 +132,7 @@ export class IssuePanel {
 
     public static async showPreview(
         extensionUri: vscode.Uri,
-        client: JiraClient,
+        client: IJiraClient,
         issueKey: string,
         summary: string,
         onOpenInBrowser: (issue: JiraIssue) => void
@@ -169,7 +169,7 @@ export class IssuePanel {
 
     public static async showPinned(
         extensionUri: vscode.Uri,
-        client: JiraClient,
+        client: IJiraClient,
         issueKey: string,
         summary: string,
         onOpenInBrowser: (issue: JiraIssue) => void

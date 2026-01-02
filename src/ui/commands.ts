@@ -1,8 +1,6 @@
 import * as vscode from 'vscode';
-import { JiraClient } from '../jira/client';
-import { AuthService } from '../jira/auth';
 import { JiraIssue } from '../jira/types';
-import { IssueCache, PreferencesService } from '../core';
+import { IAuthService, IJiraClient, IIssueCache, IPreferencesService } from '../core/interfaces';
 import { ConfigPanel } from './configPanel';
 import { IssuePanel } from './issuePanel';
 
@@ -14,10 +12,10 @@ export class CommandsManager {
     private lastClickedKey: string | null = null;
 
     constructor(
-        private readonly authService: AuthService,
-        private readonly preferences: PreferencesService,
-        private readonly client: JiraClient,
-        private readonly cache: IssueCache
+        private readonly authService: IAuthService,
+        private readonly preferences: IPreferencesService,
+        private readonly client: IJiraClient,
+        private readonly cache: IIssueCache
     ) {}
 
     registerCommands(context: vscode.ExtensionContext): void {
