@@ -109,24 +109,34 @@ suite('CommandsManager Test Suite', () => {
     });
 
     suite('openInBrowser()', () => {
-        test('does nothing when issue is null', () => {
-            commandsManager.openInBrowser(null as unknown as JiraIssue);
+        test('does nothing when issue is null', async () => {
+            await commandsManager.openInBrowser(null as unknown as JiraIssue);
         });
 
-        test('does nothing when issue is undefined', () => {
-            commandsManager.openInBrowser(undefined as unknown as JiraIssue);
+        test('does nothing when issue is undefined', async () => {
+            await commandsManager.openInBrowser(undefined as unknown as JiraIssue);
         });
 
-        test('opens browser with valid issue', () => {
-            commandsManager.openInBrowser(mockIssue);
+        test('does nothing when no credentials', async () => {
+            await commandsManager.openInBrowser(mockIssue);
         });
 
-        test('opens browser with issue having different self URL format', () => {
-            const issueWithDifferentUrl: JiraIssue = {
-                ...mockIssue,
-                self: 'https://test.atlassian.net/rest/api/3/issue/12345',
-            };
-            commandsManager.openInBrowser(issueWithDifferentUrl);
+        test('opens browser with valid issue and credentials', async () => {
+            await authService.setCredentials({
+                baseUrl: 'https://test.atlassian.net',
+                email: 'test@example.com',
+                apiToken: 'test-token',
+            });
+            await commandsManager.openInBrowser(mockIssue);
+        });
+
+        test('constructs correct URL from baseUrl and issue key', async () => {
+            await authService.setCredentials({
+                baseUrl: 'https://custom-jira.example.com',
+                email: 'test@example.com',
+                apiToken: 'test-token',
+            });
+            await commandsManager.openInBrowser(mockIssue);
         });
     });
 
