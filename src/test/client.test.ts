@@ -164,6 +164,7 @@ suite('JiraClient Test Suite', () => {
 
         test('handles non-Error thrown value', async () => {
             mockAuth.setMockCredentials(testCredentials);
+            // eslint-disable-next-line no-throw-literal
             globalThis.fetch = async () => { throw 'string error'; };
 
             const result = await client.searchIssues('project = TEST');
@@ -260,6 +261,7 @@ suite('JiraClient Test Suite', () => {
 
         test('handles non-Error thrown value', async () => {
             mockAuth.setMockCredentials(testCredentials);
+            // eslint-disable-next-line no-throw-literal
             globalThis.fetch = async () => { throw 'string error'; };
 
             const result = await client.testConnection();
@@ -307,6 +309,7 @@ suite('JiraClient Test Suite', () => {
 
         test('handles non-Error thrown value', async () => {
             mockAuth.setMockCredentials(testCredentials);
+            // eslint-disable-next-line no-throw-literal
             globalThis.fetch = async () => { throw 'string error'; };
 
             const result = await client.getFilters();
@@ -362,6 +365,7 @@ suite('JiraClient Test Suite', () => {
 
         test('handles non-Error thrown value', async () => {
             mockAuth.setMockCredentials(testCredentials);
+            // eslint-disable-next-line no-throw-literal
             globalThis.fetch = async () => { throw 'string error'; };
 
             const result = await client.getFilterById('12345');
@@ -436,6 +440,7 @@ suite('JiraClient Test Suite', () => {
 
         test('handles non-Error thrown value', async () => {
             mockAuth.setMockCredentials(testCredentials);
+            // eslint-disable-next-line no-throw-literal
             globalThis.fetch = async () => { throw 'string error'; };
 
             const result = await client.getIssue('TEST-1');
@@ -487,6 +492,7 @@ suite('JiraClient Test Suite', () => {
 
         test('handles non-Error thrown value', async () => {
             mockAuth.setMockCredentials(testCredentials);
+            // eslint-disable-next-line no-throw-literal
             globalThis.fetch = async () => { throw 'string error'; };
 
             const result = await client.downloadAttachment('https://example.com/attachment');

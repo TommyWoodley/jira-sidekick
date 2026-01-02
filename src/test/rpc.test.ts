@@ -415,6 +415,7 @@ suite('RPC Module Test Suite', () => {
                 const webview = createMockWebview();
                 const impl = {
                     throwString: () => {
+                        // eslint-disable-next-line no-throw-literal
                         throw 'String error';
                     }
                 };
@@ -442,6 +443,7 @@ suite('RPC Module Test Suite', () => {
                 const webview = createMockWebview();
                 const impl = {
                     throwNumber: () => {
+                        // eslint-disable-next-line no-throw-literal
                         throw 404;
                     }
                 };
@@ -496,6 +498,7 @@ suite('RPC Module Test Suite', () => {
                 const webview = createMockWebview();
                 const impl = {
                     asyncRejectString: async () => {
+                        // eslint-disable-next-line no-throw-literal
                         throw 'Rejected with string';
                     }
                 };
