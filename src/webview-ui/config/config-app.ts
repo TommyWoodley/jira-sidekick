@@ -4,6 +4,7 @@ import '@vscode-elements/elements/dist/vscode-button/index.js';
 import '@vscode-elements/elements/dist/vscode-textfield/index.js';
 import '@vscode-elements/elements/dist/vscode-label/index.js';
 import '@vscode-elements/elements/dist/vscode-divider/index.js';
+import '../shared/components/empty-state';
 import { sharedStyles } from '../shared/styles';
 import { createApiClient } from '../shared/rpc-client';
 import type { ConfigApi } from '@shared/api';
@@ -165,7 +166,9 @@ export class ConfigApp extends LitElement {
   }
 
   private async handleTest() {
-    if (!this.validateFormForTest()) {return;}
+    if (!this.validateFormForTest()) {
+      return;
+    }
     this.isLoading = true;
     try {
       const { success, message } = await api.testConnection(this.credentials);
@@ -183,7 +186,9 @@ export class ConfigApp extends LitElement {
 
   private async handleSave(e: Event) {
     e.preventDefault();
-    if (!this.validateForm()) {return;}
+    if (!this.validateForm()) {
+      return;
+    }
     this.isLoading = true;
     try {
       const { success, message } = await api.saveCredentials(this.credentials);
@@ -241,11 +246,8 @@ export class ConfigApp extends LitElement {
     return this.filterSearch === '' || 'my issues'.includes(this.filterSearch.toLowerCase());
   }
 
-  render() {
+  private renderCredentialsForm() {
     return html`
-      <h1>Configure Jira Sidekick</h1>
-      <p class="subtitle">Connect to your Jira Cloud instance</p>
-
       <form @submit=${this.handleSave}>
         <div class="form-group">
           <vscode-label>Jira URL</vscode-label>
@@ -304,6 +306,72 @@ export class ConfigApp extends LitElement {
           </vscode-button>
         </div>
       </form>
+    `;
+  }
+
+  private renderFilterSelection() {
+    if (!this.showFilters) {
+      return '';
+    }
+
+    return html`
+      <vscode-divider></vscode-divider>
+      <h2>Select Filter</h2>
+      <p class="help-text">Choose which issues to display in the sidebar</p>
+
+      <div class="form-group">
+        <vscode-textfield
+          placeholder="Search filters..."
+          .value=${this.filterSearch}
+          @input=${(e: Event) => {
+            const target = e.target as HTMLInputElement;
+            this.filterSearch = target.value;
+          }}
+        ></vscode-textfield>
+      </div>
+
+      <div class="filter-list">
+        ${this.filtersError ? html`
+          <div class="no-filters">${this.filtersError}</div>
+        ` : html`
+          ${this.showDefaultOption ? html`
+            <div
+              class="filter-item default ${this.selectedFilterId === null ? 'selected' : ''}"
+              @click=${() => this.handleSelectFilter(null)}
+            >
+              <span class="filter-name">My Issues (Default)</span>
+            </div>
+          ` : ''}
+          ${this.filteredFilters.length === 0 && this.filterSearch !== '' ? html`
+            <div class="no-filters">
+              <empty-state message="No filters match your search"></empty-state>
+            </div>
+          ` : this.filteredFilters.map((filter) => html`
+            <div
+              class="filter-item ${this.selectedFilterId === filter.id ? 'selected' : ''}"
+              @click=${() => this.handleSelectFilter(filter.id)}
+            >
+              <span class="filter-name">${filter.name}</span>
+              ${filter.favourite ? html`<span class="filter-fav">★</span>` : ''}
+            </div>
+          `)}
+        `}
+      </div>
+
+      <div class="button-row">
+        <vscode-button @click=${this.handleSaveFilter}>
+          Save & Close
+        </vscode-button>
+      </div>
+    `;
+  }
+
+  render() {
+    return html`
+      <h1>Configure Jira Sidekick</h1>
+      <p class="subtitle">Connect to your Jira Cloud instance</p>
+
+      ${this.renderCredentialsForm()}
 
       ${this.message ? html`
         <div class="message ${this.message.isSuccess ? 'success' : 'error'}">
@@ -311,54 +379,7 @@ export class ConfigApp extends LitElement {
         </div>
       ` : ''}
 
-      ${this.showFilters ? html`
-        <vscode-divider></vscode-divider>
-        <h2>Select Filter</h2>
-        <p class="help-text">Choose which issues to display in the sidebar</p>
-
-        <div class="form-group">
-          <vscode-textfield
-            placeholder="Search filters..."
-            .value=${this.filterSearch}
-            @input=${(e: Event) => {
-              const target = e.target as HTMLInputElement;
-              this.filterSearch = target.value;
-            }}
-          ></vscode-textfield>
-        </div>
-
-        <div class="filter-list">
-          ${this.filtersError ? html`
-            <div class="no-filters">${this.filtersError}</div>
-          ` : html`
-            ${this.showDefaultOption ? html`
-              <div
-                class="filter-item default ${this.selectedFilterId === null ? 'selected' : ''}"
-                @click=${() => this.handleSelectFilter(null)}
-              >
-                <span class="filter-name">My Issues (Default)</span>
-              </div>
-            ` : ''}
-            ${this.filteredFilters.length === 0 && this.filterSearch !== '' ? html`
-              <div class="no-filters">No filters match your search</div>
-            ` : this.filteredFilters.map((filter) => html`
-              <div
-                class="filter-item ${this.selectedFilterId === filter.id ? 'selected' : ''}"
-                @click=${() => this.handleSelectFilter(filter.id)}
-              >
-                <span class="filter-name">${filter.name}</span>
-                ${filter.favourite ? html`<span class="filter-fav">★</span>` : ''}
-              </div>
-            `)}
-          `}
-        </div>
-
-        <div class="button-row">
-          <vscode-button @click=${this.handleSaveFilter}>
-            Save & Close
-          </vscode-button>
-        </div>
-      ` : ''}
+      ${this.renderFilterSelection()}
     `;
   }
 }
