@@ -210,7 +210,7 @@ suite('CommandsManager Test Suite', () => {
             setExtensionUri();
             const handleClick = (commandsManager as unknown as { handleIssueClick(i: unknown): Promise<void> })
                 .handleIssueClick.bind(commandsManager);
-            
+
             await handleClick(mockIssue);
             await handleClick(mockIssue);
         });
@@ -264,7 +264,7 @@ suite('CommandsManager Test Suite', () => {
             setExtensionUri();
             const handleClick = (commandsManager as unknown as { handleIssueClick(i: unknown): Promise<void> })
                 .handleIssueClick.bind(commandsManager);
-            
+
             await handleClick(mockIssue);
             await handleClick(mockIssue2);
         });
