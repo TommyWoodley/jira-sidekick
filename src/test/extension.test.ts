@@ -1,9 +1,7 @@
 import * as assert from 'assert';
-
-// You can import and use all API from the 'vscode' module
-// as well as import your extension to test it
 import * as vscode from 'vscode';
-// import * as myExtension from '../../extension';
+import * as extension from '../extension';
+import * as uiIndex from '../ui/index';
 
 suite('Extension Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');
@@ -11,5 +9,45 @@ suite('Extension Test Suite', () => {
 	test('Sample test', () => {
 		assert.strictEqual(-1, [1, 2, 3].indexOf(5));
 		assert.strictEqual(-1, [1, 2, 3].indexOf(0));
+	});
+
+	test('extension module exports activate function', () => {
+		assert.ok(extension.activate);
+		assert.strictEqual(typeof extension.activate, 'function');
+	});
+
+	test('extension module exports deactivate function', () => {
+		assert.ok(extension.deactivate);
+		assert.strictEqual(typeof extension.deactivate, 'function');
+	});
+
+	test('deactivate can be called without context', () => {
+		extension.deactivate();
+	});
+});
+
+suite('UI Module Exports', () => {
+	test('exports IssuesTreeDataProvider', () => {
+		assert.ok(uiIndex.IssuesTreeDataProvider);
+	});
+
+	test('exports IssueTreeItem', () => {
+		assert.ok(uiIndex.IssueTreeItem);
+	});
+
+	test('exports StatusBarManager', () => {
+		assert.ok(uiIndex.StatusBarManager);
+	});
+
+	test('exports CommandsManager', () => {
+		assert.ok(uiIndex.CommandsManager);
+	});
+
+	test('exports ConfigPanel', () => {
+		assert.ok(uiIndex.ConfigPanel);
+	});
+
+	test('exports IssuePanel', () => {
+		assert.ok(uiIndex.IssuePanel);
 	});
 });

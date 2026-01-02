@@ -105,3 +105,18 @@ export interface JiraTransition {
     to: JiraStatus;
 }
 
+export interface JiraComment {
+    id: string;
+    author: JiraUser;
+    body: AdfNode;
+    created: string;
+    updated: string;
+}
+
+export interface JiraCommentsPage {
+    startAt: number;
+    maxResults: number;
+    total: number;
+    comments: JiraComment[];
+}
+

@@ -22,15 +22,18 @@ class MockAuthService {
 }
 
 let originalFetch: typeof globalThis.fetch;
-let mockFetchResponse: { ok: boolean; status: number; json?: () => Promise<unknown>; arrayBuffer?: () => Promise<ArrayBuffer> };
+let mockFetchResponse: { ok: boolean; status: number; json?: () => Promise<unknown>; arrayBuffer?: () => Promise<ArrayBuffer>; text?: () => Promise<string> };
 
 function setupFetchMock(): void {
     originalFetch = globalThis.fetch;
     globalThis.fetch = async (): Promise<Response> => {
+        const jsonFn = mockFetchResponse.json || (async () => ({}));
+        const textFn = mockFetchResponse.text || (async () => JSON.stringify(await jsonFn()));
         return {
             ok: mockFetchResponse.ok,
             status: mockFetchResponse.status,
-            json: mockFetchResponse.json || (async () => ({})),
+            json: jsonFn,
+            text: textFn,
             arrayBuffer: mockFetchResponse.arrayBuffer || (async () => new ArrayBuffer(0)),
         } as Response;
     };
@@ -596,7 +599,7 @@ suite('JiraClient Test Suite', () => {
 
         test('returns success on 204', async () => {
             mockAuth.setMockCredentials(testCredentials);
-            mockFetchResponse = { ok: true, status: 204 };
+            mockFetchResponse = { ok: true, status: 204, text: async () => '' };
 
             const result = await client.transitionIssue('TEST-1', '21');
             assert.strictEqual(result.success, true);
@@ -653,7 +656,8 @@ suite('JiraClient Test Suite', () => {
             const result = await client.transitionIssue('TEST-1', '999');
             assert.strictEqual(result.success, false);
             if (!result.success) {
-                assert.ok(result.error.message.includes('Invalid transition'));
+                assert.ok(result.error.message.includes('400'));
+                assert.strictEqual(result.error.statusCode, 400);
             }
         });
 
@@ -686,6 +690,105 @@ suite('JiraClient Test Suite', () => {
             globalThis.fetch = async () => { throw 'string error'; };
 
             const result = await client.transitionIssue('TEST-1', '21');
+            assert.strictEqual(result.success, false);
+        });
+    });
+
+    suite('getComments()', () => {
+        test('returns error when no credentials', async () => {
+            mockAuth.setMockCredentials(null);
+            const result = await client.getComments('TEST-1');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.strictEqual(result.error.message, 'No credentials configured');
+            }
+        });
+
+        test('returns comments on success', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            const mockComments = {
+                startAt: 0,
+                maxResults: 100,
+                total: 2,
+                comments: [
+                    { id: '1', author: { accountId: '123', displayName: 'User 1' }, body: { type: 'doc', content: [] }, created: '2024-01-01T00:00:00.000Z', updated: '2024-01-01T00:00:00.000Z' },
+                    { id: '2', author: { accountId: '456', displayName: 'User 2' }, body: { type: 'doc', content: [] }, created: '2024-01-02T00:00:00.000Z', updated: '2024-01-02T00:00:00.000Z' },
+                ]
+            };
+            mockFetchResponse = { ok: true, status: 200, json: async () => mockComments };
+
+            const result = await client.getComments('TEST-1');
+            assert.strictEqual(result.success, true);
+            if (result.success) {
+                assert.strictEqual(result.data.length, 2);
+                assert.strictEqual(result.data[0].author.displayName, 'User 1');
+            }
+        });
+
+        test('returns error on 404', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = { ok: false, status: 404, json: async () => ({ errorMessages: [] }) };
+
+            const result = await client.getComments('NOTFOUND-1');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.strictEqual(result.error.statusCode, 404);
+            }
+        });
+
+        test('returns error on 401', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = { ok: false, status: 401, json: async () => ({ errorMessages: [] }) };
+
+            const result = await client.getComments('TEST-1');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('Authentication'));
+                assert.strictEqual(result.error.statusCode, 401);
+            }
+        });
+
+        test('returns error on 403', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = { ok: false, status: 403, json: async () => ({ errorMessages: [] }) };
+
+            const result = await client.getComments('TEST-1');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('Access denied'));
+                assert.strictEqual(result.error.statusCode, 403);
+            }
+        });
+
+        test('handles non-JSON error response', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            mockFetchResponse = {
+                ok: false,
+                status: 500,
+                json: async () => { throw new Error('Not JSON'); },
+            };
+
+            const result = await client.getComments('TEST-1');
+            assert.strictEqual(result.success, false);
+            if (!result.success) {
+                assert.ok(result.error.message.includes('500'));
+            }
+        });
+
+        test('handles network error', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            globalThis.fetch = async () => { throw new Error('Network error'); };
+
+            const result = await client.getComments('TEST-1');
+            assert.strictEqual(result.success, false);
+        });
+
+        test('handles non-Error thrown value', async () => {
+            mockAuth.setMockCredentials(testCredentials);
+            // eslint-disable-next-line no-throw-literal
+            globalThis.fetch = async () => { throw 'string error'; };
+
+            const result = await client.getComments('TEST-1');
             assert.strictEqual(result.success, false);
         });
     });

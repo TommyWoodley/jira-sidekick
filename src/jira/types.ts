@@ -10,6 +10,8 @@ export type {
     JiraError,
     JiraFilter,
     JiraTransition,
+    JiraComment,
+    JiraCommentsPage,
     AdfMark,
     AdfNode,
 } from '../shared/models';
