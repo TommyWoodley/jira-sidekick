@@ -113,11 +113,15 @@ export class CommandsManager {
         );
     }
 
-    openInBrowser(issue: JiraIssue): void {
+    async openInBrowser(issue: JiraIssue): Promise<void> {
         if (!issue) {
             return;
         }
-        const url = issue.self.replace('/rest/api/3/issue/', '/browse/').replace(/\/\d+$/, `/${issue.key}`);
+        const credentials = await this.authService.getCredentials();
+        if (!credentials) {
+            return;
+        }
+        const url = `${credentials.baseUrl}/browse/${issue.key}`;
         vscode.env.openExternal(vscode.Uri.parse(url));
     }
 
@@ -130,7 +134,7 @@ export class CommandsManager {
             this.client,
             issue.key,
             issue.fields.summary,
-            (i) => this.openInBrowser(i)
+            async (i) => this.openInBrowser(i)
         );
     }
 
@@ -143,7 +147,7 @@ export class CommandsManager {
             this.client,
             issue.key,
             issue.fields.summary,
-            (i) => this.openInBrowser(i)
+            async (i) => this.openInBrowser(i)
         );
     }
 
