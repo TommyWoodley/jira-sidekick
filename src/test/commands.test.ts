@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { CommandsManager } from '../ui/commands';
 import { AuthService } from '../jira/auth';
 import { JiraClient } from '../jira/client';
-import { IssueCache } from '../core/cache';
+import { IssueCache, PreferencesService } from '../core';
 import { JiraIssue } from '../jira/types';
 
 const mockIssue: JiraIssue = {
@@ -65,18 +65,43 @@ class MockSecretStorage implements vscode.SecretStorage {
     }
 }
 
+class MockMemento implements vscode.Memento {
+    private storage = new Map<string, unknown>();
+    keys(): readonly string[] {
+        return Array.from(this.storage.keys());
+    }
+    get<T>(key: string): T | undefined;
+    get<T>(key: string, defaultValue: T): T;
+    get<T>(key: string, defaultValue?: T): T | undefined {
+        const value = this.storage.get(key);
+        return value !== undefined ? (value as T) : defaultValue;
+    }
+    update(key: string, value: unknown): Thenable<void> {
+        if (value === undefined || value === null) {
+            this.storage.delete(key);
+        } else {
+            this.storage.set(key, value);
+        }
+        return Promise.resolve();
+    }
+    setKeysForSync(): void { }
+}
+
 suite('CommandsManager Test Suite', () => {
     let authService: AuthService;
+    let preferences: PreferencesService;
     let client: JiraClient;
     let cache: IssueCache;
     let commandsManager: CommandsManager;
 
     setup(() => {
         const mockSecretStorage = new MockSecretStorage();
+        const mockMemento = new MockMemento();
         authService = new AuthService(mockSecretStorage);
+        preferences = new PreferencesService(mockMemento);
         client = new JiraClient(authService);
         cache = new IssueCache();
-        commandsManager = new CommandsManager(authService, client, cache);
+        commandsManager = new CommandsManager(authService, preferences, client, cache);
     });
 
     teardown(() => {
@@ -143,6 +168,27 @@ suite('CommandsManager Test Suite', () => {
     suite('configure()', () => {
         test('does nothing when extensionUri is not set', async () => {
             await commandsManager.configure();
+        });
+    });
+
+    suite('refresh()', () => {
+        test('uses selected filter when set', async () => {
+            await authService.setCredentials({
+                baseUrl: 'https://test.atlassian.net',
+                email: 'test@example.com',
+                apiToken: 'test-token',
+            });
+            await preferences.setSelectedFilter('12345');
+            await commandsManager.refresh();
+        });
+
+        test('uses default JQL when no filter selected', async () => {
+            await authService.setCredentials({
+                baseUrl: 'https://test.atlassian.net',
+                email: 'test@example.com',
+                apiToken: 'test-token',
+            });
+            await commandsManager.refresh();
         });
     });
 });

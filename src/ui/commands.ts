@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { JiraClient } from '../jira/client';
 import { AuthService } from '../jira/auth';
 import { JiraIssue } from '../jira/types';
-import { IssueCache } from '../core/cache';
+import { IssueCache, PreferencesService } from '../core';
 import { ConfigPanel } from './configPanel';
 import { IssuePanel } from './issuePanel';
 
@@ -15,6 +15,7 @@ export class CommandsManager {
 
     constructor(
         private readonly authService: AuthService,
+        private readonly preferences: PreferencesService,
         private readonly client: JiraClient,
         private readonly cache: IssueCache
     ) {}
@@ -55,7 +56,7 @@ export class CommandsManager {
     }
 
     private async getJql(): Promise<string> {
-        const selectedFilterId = await this.authService.getSelectedFilter();
+        const selectedFilterId = this.preferences.getSelectedFilter();
         if (selectedFilterId) {
             const filterResult = await this.client.getFilterById(selectedFilterId);
             if (filterResult.success) {
@@ -106,6 +107,7 @@ export class CommandsManager {
         await ConfigPanel.show(
             this.extensionUri,
             this.authService,
+            this.preferences,
             this.client,
             () => this.refresh()
         );

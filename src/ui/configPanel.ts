@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { AuthService } from '../jira/auth';
 import { JiraClient } from '../jira/client';
+import { PreferencesService } from '../core';
 import type { ConfigApi } from '../shared/api';
 import type { JiraCredentials } from '../shared/models';
 import { exposeApi } from '../shared/rpc';
@@ -14,6 +15,7 @@ export class ConfigPanel {
         panel: vscode.WebviewPanel,
         private readonly extensionUri: vscode.Uri,
         private readonly authService: AuthService,
+        private readonly preferences: PreferencesService,
         private readonly client: JiraClient,
         private readonly onSuccess: () => void
     ) {
@@ -29,7 +31,7 @@ export class ConfigPanel {
         return {
             getCredentials: async () => {
                 const credentials = await this.authService.getCredentials();
-                const selectedFilter = await this.authService.getSelectedFilter();
+                const selectedFilter = this.preferences.getSelectedFilter();
                 return {
                     credentials: credentials ? {
                         baseUrl: credentials.baseUrl,
@@ -64,12 +66,12 @@ export class ConfigPanel {
                 if (!result.success) {
                     throw new Error(result.error.message);
                 }
-                const selectedFilter = await this.authService.getSelectedFilter();
+                const selectedFilter = this.preferences.getSelectedFilter();
                 return { filters: result.data, selectedFilter };
             },
 
             saveFilter: async (filterId: string | null) => {
-                await this.authService.setSelectedFilter(filterId);
+                await this.preferences.setSelectedFilter(filterId);
                 vscode.window.showInformationMessage(
                     filterId ? 'Filter saved!' : 'Using default "My Issues" view'
                 );
@@ -88,6 +90,7 @@ export class ConfigPanel {
     public static async show(
         extensionUri: vscode.Uri,
         authService: AuthService,
+        preferences: PreferencesService,
         client: JiraClient,
         onSuccess: () => void
     ): Promise<void> {
@@ -107,7 +110,7 @@ export class ConfigPanel {
             }
         );
 
-        ConfigPanel.currentPanel = new ConfigPanel(panel, extensionUri, authService, client, onSuccess);
+        ConfigPanel.currentPanel = new ConfigPanel(panel, extensionUri, authService, preferences, client, onSuccess);
     }
 
     private getWebviewContent(): string {
