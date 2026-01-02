@@ -1,0 +1,21 @@
+name: Sub-task
+description: Create a sub-task for an existing issue
+title: "[Sub-task]: "
+labels: ["sub-task"]
+body:
+  - type: input
+    id: parent
+    attributes:
+      label: Parent Issue
+      description: Link to the parent issue
+      placeholder: "#123"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What needs to be done?
+    validations:
+      required: true
