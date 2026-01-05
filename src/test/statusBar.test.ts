@@ -78,3 +78,4 @@ suite('StatusBarManager Test Suite', () => {
     });
 });
 
+

@@ -192,3 +192,4 @@ suite('IssuesTreeDataProvider Test Suite', () => {
     });
 });
 
+
